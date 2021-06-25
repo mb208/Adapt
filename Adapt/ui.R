@@ -89,7 +89,8 @@ shinyUI(fluidPage(
                         )),
                         br(),
                         br(),
-                        actionButton("get_prob",label = "Assign Treatment")
+                        actionButton("get_prob",label = "Assign Treatment"),
+                        textOutput("selected")
                         )
                     )
            ),
