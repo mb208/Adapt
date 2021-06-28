@@ -13,7 +13,9 @@ library(tidyverse)
 library(shinythemes)
 source("R/custom_ui.R")
 
-data <- read.csv("./data/test_data.csv")
+# data <- read.csv("./data/test_data.csv")
+
+
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
@@ -23,12 +25,22 @@ shinyUI(fluidPage(
     ),
     # Application title
     titlePanel("Randomization probabilities"),
+    actionButton("browser", "browser"),
+    tags$script("$('#browser').hide();"),
     column(2,
         tags$div(
+            selectInput("data_choice", 
+                        "Choose data source:",
+                        choices = c("Upload File",
+                                    "Simulate")),
+            conditionalPanel("input.data_choice === 'Upload File'",
+                             fileInput("file_info", 
+                                       "Upload File",
+                                       accept = ".csv")),
             h4('Choose Variables'), 
             selectInput('calc_vars', 
                     label = "",
-                    names(data), 
+                    list(), 
                     multiple=TRUE, 
                     selectize=TRUE)
         ),
@@ -53,7 +65,7 @@ shinyUI(fluidPage(
                                       onInitialize = I('function() { this.setValue(0); }')) 
         ),
         actionButton("apply_aggs",label = "Apply Sequence")
-        ),
+        ), # end of column 1
     column(1, 
            offset = 0,
            style='padding:20px;',
@@ -66,31 +78,25 @@ shinyUI(fluidPage(
                         tags$table(border = 2, 
                                    tags$thead(
                                        tags$tr(
-                                           tags$th(colspan = 3, height = 50, width = 600, 
-                                                   "")
+                                           tags$th(colspan = 4, height = 50, width = 600, 
+                                                   "Data Transformation Steps", style = 'text-align: center')
                                        )
                                    ), 
                                    tags$tbody(
                                        tags$tr(id = "agg-table-body",
                                                tags$td(align = "center", strong("Variables")),
                                                tags$td(align = "center", strong("1st Method")),
-                                               tags$td(align = "center", strong("2nd Method"))
+                                               tags$td(align = "center", strong("2nd Method")),
+                                               tags$td(align = "center", strong("Variable Name"))
                                        )
                                    )
                         )
                         ,
-                        tags$script(HTML("$('#apply_aggs').click(function(){ 
-                             let X    = $('#calc_vars').val() ;
-                             let aggf = $('#data_agg').val();
-                             let pmap = $('#prob_map').val();
-                             let html = `<tr class='agg-seq'><td align='center' style='word-wrap: break-word'>${X}</td><td align='center'>${aggf}</td><td align='center'>${pmap}</td></tr>`;
-                             $('table tbody').append(html)})
-                        "
-                        )),
                         br(),
                         br(),
-                        actionButton("get_prob",label = "Assign Treatment"),
-                        textOutput("selected")
+                        actionButton("get_prob",label = "Assign Treatment") 
+                        # , 
+                        # tableOutput("selected")
                         )
                     )
            ),
@@ -111,8 +117,6 @@ shinyUI(fluidPage(
                                     })"
                     ))
                     ),
-           # plotOutput("prob_plot", width = "auto"),
-           # plotOutput("assignment_plot"),
            actionButton("reset",label = "Reset"),
            tags$script(HTML("$('#reset').click(function(){
                                 $('table tbody').find('.agg-seq').remove() ;

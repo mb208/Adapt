@@ -1,10 +1,7 @@
 library(shiny)
 
 
-
-
-
-data <- read.csv("./data/test_data.csv")
+# data <- read.csv("./data/test_data.csv")
 
 ### Non reactive functions ###
 
@@ -33,29 +30,107 @@ prob_maps <- list("expit" = expit,
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
    
-   ###! Will change when data is user specified
-   variable_choices <- names(data)
-   names(variable_choices) <- variable_choices
+   # ###! Will change when data is user specified
+   # variable_choices <- names(data)
+   # names(variable_choices) <- variable_choices
+
    
    ### Initialize values for probability calculation ###
    prob_values <-  reactiveValues(
+
+      agg_cnt = 0,
+      probs = NULL,
+      treatment = NULL,
+      variable_choices = NULL,
+      generated_variables = c(),
+      data = NULL
+
+   )
+
+   # For debugging
+   observeEvent(input$browser,{
+      browser()
+   })
+   
+   upload_data  <- reactive({
+      req(input$file_info$name)
+     
+      ext <- tools::file_ext(input$file_info$datapath)
+      validate(need(ext == "csv", "Please upload a csv file"))
+         
+      return(read.csv(input$file_info$datapath))
       
-      agg_cnt = 0, 
-      probs = numeric(length = nrow(data)), 
-      treatment = numeric(length = nrow(data)),
-      variable_choices = variable_choices,
-      generated_variables = c(), 
-      data = data
+      })
+   
+   
+# Set initial data values    
+ observeEvent(input$file_info, {
+    
+
+    data <- upload_data()
+    updateSelectInput(
+    session = session,
+    inputId = 'calc_vars',
+    choices = names(data)
+    )
+
+    
+    variable_choices <- names(data)
+    names(variable_choices) <- variable_choices
+
+    prob_values$probs = numeric(length = nrow(data))
+    prob_values$treatment = numeric(length = nrow(data))
+    prob_values$variable_choices = variable_choices
+    prob_values$data = data
+
+ })
+
+ output$vars <- renderText({
+    names(prob_values$data)
+ })
+ 
+  #### Dynamic UI components ####
+   
+   data_sim_params <-  reactiveValues(
       
+      num_vars = 1 
+
    )
    
+   
+   # data_gen_modal <- modalDialog(
+   #    fluidPage(titlePanel("Simulate Dataset"),
+   #              column(2,
+   #                     tags$div(
+   #                        h4(paste0('Generating variable: X', data_sim_params$num_vars)), 
+   #                        selectInput('calc_vars', 
+   #                                    label = "",
+   #                                    names(data), 
+   #                                    multiple=TRUE, 
+   #                                    selectize=TRUE)
+   #                     ),
+   #                     h4('Select Distribution'),
+   #                     selectizeInput('data_agg', 
+   #                                    label = "",
+   #                                    list("sum",
+   #                                         "average",
+   #                                         "weighted average"),
+   #                                    options = list(maxItems = 1,
+   #                                                   placeholder = "select data transformation",
+   #                                                   onInitialize = I('function() { this.setValue(0); }')) 
+   #                     )
+   #              ),
+   #              
+   #              
+   #              )
+   # )
+   
   
-  #### Dynamic UI components ####
-  
-  covariates <- reactive({
+   covariates <- reactive({
+   #req(input$file_info$datapath)
     
-     prob_values$data %>% 
-        select(unname(prob_values$variable_choices[input$calc_vars]))
+       prob_values$data %>% 
+        select(prob_values$variable_choices[input$calc_vars])
     
   })
   
@@ -88,8 +163,7 @@ shinyServer(function(input, output, session) {
    aggregations <- reactive({
      # if weighted average chosen
      if (input$data_agg == "weighted average") {
-        print(var_wgts())
-        print(head(covariates()))
+   
        apply(covariates(),
              MARGIN = 1,
              function(x) {
@@ -133,7 +207,17 @@ shinyServer(function(input, output, session) {
       # Save new variables to be removed on reset
       prob_values$generated_variables <- c(prob_values$generated_variables, new_var_name)
       
-      
+      insertUI("table tbody",
+               where = "beforeEnd",
+               ui = tags$tr(class = "agg-seq",
+                            tags$td(align = "center", 
+                                    style = "word-wrap: break-word;",
+                                    paste0(input$calc_vars, collapse = ", ")),
+                            tags$td(align = "center", input$data_agg),
+                            tags$td(align = "center", input$prob_map),
+                            tags$td(align = "center", new_var_disp)
+               )
+      )
       
       # Reset select inputs 
       updateSelectInput(
@@ -178,15 +262,15 @@ shinyServer(function(input, output, session) {
    observeEvent(input$reset, {
       
       prob_values$agg_cnt = 0
-      prob_values$probs =  numeric(length = nrow(data))
+      prob_values$probs =  numeric(length = nrow(prob_values$data))
       
       # Remove newly generated variables from data set
       prob_values$data <- prob_values$data %>% 
-         dplyr::select(-generated_variables)
+         dplyr::select(-prob_values$generated_variables)
       
       prob_values$variable_choices <- names(prob_values$data)
       names(prob_values$variable_choices) <- prob_values$variable_choices
-      prob_values$generated_variables <-  0
+      prob_values$generated_variables <-  c()
       
       updateSelectInput(
          session = session,
@@ -196,7 +280,7 @@ shinyServer(function(input, output, session) {
    })
    
    ### Assign treatment to participants ###
-   output$selected <-  renderText({names(covariates())})
+   output$selected <-  renderTable({head(upload_data())})
    output$cnt <-  renderText({ prob_values$agg_cnt})
 
    output$prob_plot <-  renderPlot({
