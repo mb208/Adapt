@@ -13,10 +13,6 @@ library(tidyverse)
 library(shinythemes)
 source("R/custom_ui.R")
 
-# data <- read.csv("./data/test_data.csv")
-
-
-
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
     theme = shinytheme("sandstone"),

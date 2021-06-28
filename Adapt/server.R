@@ -1,8 +1,5 @@
 library(shiny)
 
-
-# data <- read.csv("./data/test_data.csv")
-
 ### Non reactive functions ###
 
 expit <- function(x) {
@@ -29,12 +26,7 @@ prob_maps <- list("expit" = expit,
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
-   
-   # ###! Will change when data is user specified
-   # variable_choices <- names(data)
-   # names(variable_choices) <- variable_choices
 
-   
    ### Initialize values for probability calculation ###
    prob_values <-  reactiveValues(
 
