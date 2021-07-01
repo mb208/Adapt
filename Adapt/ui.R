@@ -15,18 +15,32 @@ source("R/custom_ui.R")
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
+    shinyjs::useShinyjs(),
     theme = shinytheme("sandstone"),
     tags$head(
-        tags$link(rel = "stylesheet", type="text/css", href = "style.css"),
+        tags$style(HTML('
+
+                        .modal-lg {
+                        width: 1500px;
+                        max-width: 1500px;
+
+                        }
+                        
+                        .modal-body { 
+                        min-height:700px;
+                        }
+                        
+                        
+                      '))
     ),
     # Application title
-    titlePanel("Randomization probabilities"),
+    titlePanel("Randomization Design"),
     actionButton("browser", "browser"),
     tags$script("$('#browser').hide();"),
     column(2,
         tags$div(
-            selectInput("data_choice", 
-                        "Choose data source:",
+            radioButtons("data_choice", 
+                        h3(strong("Choose data source:")),
                         choices = c("Upload File",
                                     "Simulate")),
             conditionalPanel("input.data_choice === 'Upload File'",

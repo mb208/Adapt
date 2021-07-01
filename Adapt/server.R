@@ -1,6 +1,39 @@
 library(shiny)
 
-### Non reactive functions ###
+
+
+#### Creating list of UIs for distribution inputs ####
+get_dist_ui <- function(dist) {
+   #### Returns Shiny Input 
+   switch(
+      dist,
+      "gaussian" = tags$div(
+         h4(strong("Gaussian Parameterization")),
+         numericInput("guass_mu", "Mean", value = 0),
+         numericInput("guass_sd", "SD", value = 1)
+      ),
+      
+      "bernoulli" = tags$div(
+         h4(strong("Bernoulli Parameterization")),
+         numericInput("bern_p", "Probability", value = .5)
+      ),
+      
+      "binomial" = tags$div(
+         h4(strong("Binomial Parameterization")),
+         numericInput("bin_n", "Size", value = 5),
+         numericInput("bin_p", "Probability", value = .5)
+      ),
+      "gamma"   =  tags$div(
+         h4(strong("Gamma Parameterization")),
+         numericInput("gamma_s", "Shape", value = 1),
+         numericInput("gamma_r", "Rate", value =  1)
+      )
+      
+   )
+   
+}
+
+#### List mapping input arguments to functions ####
 
 expit <- function(x) {
   exp(x) / (1 + exp(x))
@@ -82,51 +115,169 @@ shinyServer(function(input, output, session) {
  })
  
   #### Dynamic UI components ####
+ 
+ 
+ #### Modal Dialog for data simulation ####
    
-   data_sim_params <-  reactiveValues(
+   sim_params <-  reactiveValues(
       
-      num_vars = 1 
+      num_vars = 1 ,
+      sim_data = NULL
 
    )
    
    
-   # data_gen_modal <- modalDialog(
-   #    fluidPage(titlePanel("Simulate Dataset"),
-   #              column(2,
-   #                     tags$div(
-   #                        h4(paste0('Generating variable: X', data_sim_params$num_vars)), 
-   #                        selectInput('calc_vars', 
-   #                                    label = "",
-   #                                    names(data), 
-   #                                    multiple=TRUE, 
-   #                                    selectize=TRUE)
-   #                     ),
-   #                     h4('Select Distribution'),
-   #                     selectizeInput('data_agg', 
-   #                                    label = "",
-   #                                    list("sum",
-   #                                         "average",
-   #                                         "weighted average"),
-   #                                    options = list(maxItems = 1,
-   #                                                   placeholder = "select data transformation",
-   #                                                   onInitialize = I('function() { this.setValue(0); }')) 
-   #                     )
-   #              ),
-   #              
-   #              
-   #              )
-   # )
+   data_gen_modal <- modalDialog(
+      fluidPage(
+         shinyjs::useShinyjs(),
+                fluidRow(column(1,
+                                numericInput("n_participants", 
+                                             "Number of Participants",
+                                             value = 20))),
+         column(3, 
+            uiOutput("var_title"),
+            shinyjs::hidden(
+               radioButtons(
+                  "independ_dist",
+                  label = "Are the new variable and previous variables\n independently distributed?",
+                  choices = c("Yes", "No")
+               )),
+            shinyjs::hidden(
+               selectizeInput(
+               inputId = 'conditional_vars',
+               label = "Choose Variables",
+               list(),
+               options = list(maxItems = 1,
+                              placeholder = "select variables",
+                              onInitialize = I('function() { this.setValue(0); }'))
+            )),
+            selectizeInput(
+               inputId = 'data_dist',
+               label = "Select Distribution",
+               list("Gaussian",
+                    "Bernoulli",
+                    "Binomial",
+                    "Gamma"),
+               options = list(maxItems = 1,
+                              placeholder = "select distribution",
+                              onInitialize = I('function() { this.setValue(0); }'))
+               ),
+            uiOutput("dist_params"),
+            actionButton("gen_var", "Generate")
+         ),
+         tableOutput("sim_data")
+         )
+      ,
+      title = "Simulate Dataset"
+      ,
+      size = "l" # made modal window large
+
+
+                )
    
+   # Display name of new variable
+   output$var_title <- renderUI({
+      tags$div(h3(strong(paste("Generating X", sim_params$num_vars, sep = ""))))
+   })
+   
+   
+   # Display required parameters for selected distribution
+   output$dist_params <-  renderUI({
+      
+      get_dist_ui(tolower(input$data_dist))
+   })
+   
+   
+   observeEvent(input$gen_var, {
+      
+      
+      
+      n_participants <- input$n_participants
+      
+      ## If new variable is indpendpent (or first variable) then draw samples
+      if (input$independ_dist == "Yes") {
+         new_var <- switch (input$data_dist,
+            "Gaussian" = rnorm(n_participants,
+                               mean = input$guass_mu,
+                               sd = input$guass_sd) ,
+            "Bernoulli" = rbernoulli(n_participants, p = input$bern_p),
+            
+            "Binomial" = rbinom(n_participants, size = input$bin_n, 
+                                p = input$bin_p),
+            
+            "Gamma" = rgamma(n_participants,
+                             shape = input$gamma_s, 
+                             rate = input$gamma_r) 
+            )
+      }
+      
+      if (sim_params$num_vars == 1) {
+         
+         sim_params$sim_data <- data.frame("X1" = new_var)
+      } else {
+         
+         sim_var_name = paste("X", sim_params$num_vars, sep = "")
+         sim_params$sim_data[sim_var_name] <- new_var
+      }
+      
+      sim_params$num_vars = sim_params$num_vars  + 1
+      
+      updateRadioButtons(
+         session,
+         "independ_dist",
+         label = "Are the new variable and previous variables\n independently distributed?",
+         choices = c("Yes", "No"),
+         selected = character(0)
+      )
+      
+   })
+   
+   output$sim_data <- renderTable({head(sim_params$sim_data)})
+   
+   observe({
+      # When number of variables in greater then 1
+      # Give option to choose if new variable is dependent on previous
+      
+      if (sim_params$num_vars > 1 ) {
+         shinyjs::disable("n_participants")
+         shinyjs::show("independ_dist")
+         shinyjs::hide("data_dist")
+         shinyjs::hide("dist_params")
+      }
+      
+   })
+   
+   observeEvent(input$independ_dist, {
+       if (sim_params$num_vars > 1) {  
+         if (input$independ_dist == "Yes") {
+            shinyjs::show("data_dist")
+            shinyjs::show("dist_params")
+         } else {
+            shinyjs::hide("data_dist")
+            shinyjs::hide("dist_params")
+         }
+          }
+   }, ignoreInit = TRUE)  
+   
+
+   observeEvent(input$data_choice, {
+      if (input$data_choice == "Simulate") {
+         
+         showModal(data_gen_modal)
+         
+      }
+   }, ignoreInit = TRUE)
   
    covariates <- reactive({
-   #req(input$file_info$datapath)
     
        prob_values$data %>% 
         select(prob_values$variable_choices[input$calc_vars])
     
   })
   
-   # Here we use the input va
+   
+   ##### Calculations for Randomization Design ####
+   # Here we use the input var
   var_wgts <- reactive({
     sapply(input$calc_vars, function(x){
       input[[paste('wgt_',x)]]
