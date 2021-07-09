@@ -1,5 +1,36 @@
 library(shiny)
 
+#### Function to Apply different operators to input variable(s) ####
+
+
+n_ary_operator <- function(operator, var) {
+   ## Make sure there are at least 2 variables
+   stopifnot(length(var) > 1)
+   
+   ## Make sure operator is in list of operators
+   stopifnot(operator %in% c("+", "-", "x", "/"))
+   
+   switch(operator,
+          "+" = reduce(var, `+`),
+          "-" = reduce(var, `-`),
+          "x" = reduce(var, `*`),
+          "/" = reduce(var, `/`))
+}
+
+unary_operator <- function(operator, var, pow) {
+   ## Make sure operator is in list of operators
+   stopifnot(operator %in% c("exp", "ln", "^"))
+   
+   ## Coniditions for power to work
+   stopifnot((operator == "^" & exists("pow")) || operator != "^")
+   stopifnot((operator == "^" & is.numeric(pow)) || operator != "^")
+   
+   switch(operator,
+          "exp" = exp(var),
+          "ln" = log(var),
+          "^" = var^pow)
+   
+}
 
 
 #### Creating list of UIs for distribution inputs ####
@@ -114,26 +145,32 @@ shinyServer(function(input, output, session) {
     names(prob_values$data)
  })
  
-  #### Dynamic UI components ####
+ #### Dynamic UI components ####
  
  
  #### Modal Dialog for data simulation ####
-   
+
+ #### Init reactive values for data simulation ####   
    sim_params <-  reactiveValues(
       
       num_vars = 1 ,
-      sim_data = NULL
-
+      sim_data = NULL,
+      cond_dist_step = 0 # tells us what stage we are at when generating location scale model
+                           # 0 = Not active
+                           # 1 = Specifying mean
+                           # 2 = Specifying variance
+                           # 3 = Specifying error
    )
    
-   
+   #### Model Dialog UI ####
    data_gen_modal <- modalDialog(
       fluidPage(
          shinyjs::useShinyjs(),
-                fluidRow(column(1,
-                                numericInput("n_participants", 
-                                             "Number of Participants",
-                                             value = 20))),
+                fluidRow(
+                   column(1,
+                          numericInput("n_participants",
+                                       "Number of Participants",
+                                       value = 20))),
          column(3, 
             uiOutput("var_title"),
             shinyjs::hidden(
@@ -142,15 +179,6 @@ shinyServer(function(input, output, session) {
                   label = "Are the new variable and previous variables\n independently distributed?",
                   choices = c("Yes", "No")
                )),
-            shinyjs::hidden(
-               selectizeInput(
-               inputId = 'conditional_vars',
-               label = "Choose Variables",
-               list(),
-               options = list(maxItems = 1,
-                              placeholder = "select variables",
-                              onInitialize = I('function() { this.setValue(0); }'))
-            )),
             selectizeInput(
                inputId = 'data_dist',
                label = "Select Distribution",
@@ -165,7 +193,55 @@ shinyServer(function(input, output, session) {
             uiOutput("dist_params"),
             actionButton("gen_var", "Generate")
          ),
-         tableOutput("sim_data")
+         column(9,
+                fluidRow(column(5,
+                                shinyjs::hidden(
+                                   tags$div(id = "cond_dist_title",
+                                            h3(strong("Constructing Conditional Distribution")))
+                                )
+                )),
+                column(2,
+                       shinyjs::hidden(
+                          tags$div(id="loc_scale_column",
+                                 uiOutput("param_specification"),  # Are we specifying the mean, var, or error
+                                    selectInput(
+                                       inputId = 'conditional_vars',
+                                       label = "Choose Variables",
+                                       list(),
+                                       multiple=TRUE, 
+                                       selectize=TRUE
+                                    ),
+                                 shinyjs::hidden(selectizeInput(
+                                    inputId = 'unary_operation',
+                                    label = "Apply operation to chosen variable",
+                                    c("exp","ln", "^"),
+                                    options = list(maxItems = 1,
+                                                   placeholder = "select operation",
+                                                   onInitialize = I('function() { this.setValue(0); }'))
+                                 )),
+                                 shinyjs::hidden(selectizeInput(
+                                    inputId = 'multi_operation',
+                                    label = "Apply operation to chosen variables",
+                                    c("+","-", "x", "/"),
+                                    options = list(maxItems = 1,
+                                                   placeholder = "select operation",
+                                                   onInitialize = I('function() { this.setValue(0); }'))
+                                 )),
+                                 shinyjs::hidden(
+                                    numericInput("power_val", "Exponent Value:", value = 1)
+                                 ),
+                                 actionButton("apply_operation", "Apply Operations"),
+                                 br(),
+                                 br(),
+                                 br(),
+                                 actionButton("calc_mean", "Calculate Mean")
+                       )))
+                       ,
+                column(3,
+                       tableOutput("sim_data"),
+                       textOutput("var_creation_warning")
+                )
+                )
          )
       ,
       title = "Simulate Dataset"
@@ -180,6 +256,17 @@ shinyServer(function(input, output, session) {
       tags$div(h3(strong(paste("Generating X", sim_params$num_vars, sep = ""))))
    })
    
+   # Title for stage of conditional distribution
+   output$param_specification <- renderUI({
+      
+      switch(sim_params$cond_dist_step,
+         "1" = tags$div(h4(strong("Specify the Mean"))), 
+         "2" = tags$div(h4(strong("Specify the Variance"))),
+         "3" = tags$div(h4(strong("Specify the error distribution"))),
+         "" # default case
+      )
+         
+   })
    
    # Display required parameters for selected distribution
    output$dist_params <-  renderUI({
@@ -187,33 +274,36 @@ shinyServer(function(input, output, session) {
       get_dist_ui(tolower(input$data_dist))
    })
    
-   
+   #### ObserveEvent: Generating new variable for simulated data set ####
    observeEvent(input$gen_var, {
       
       
       
       n_participants <- input$n_participants
       
-      ## If new variable is indpendpent (or first variable) then draw samples
+      ## If new variable is independent (or first variable) then draw samples
       if (input$independ_dist == "Yes") {
          new_var <- switch (input$data_dist,
-            "Gaussian" = rnorm(n_participants,
+            "Gaussian"  = rnorm(n_participants,
                                mean = input$guass_mu,
-                               sd = input$guass_sd) ,
-            "Bernoulli" = rbernoulli(n_participants, p = input$bern_p),
+                               sd = input$guass_sd),
+            "Bernoulli" = 1*rbernoulli(n_participants, 
+                                     p = input$bern_p),
             
-            "Binomial" = rbinom(n_participants, size = input$bin_n, 
-                                p = input$bin_p),
+            "Binomial"  = rbinom(n_participants, 
+                                 size = input$bin_n, 
+                                 p = input$bin_p),
             
-            "Gamma" = rgamma(n_participants,
-                             shape = input$gamma_s, 
-                             rate = input$gamma_r) 
+            "Gamma"     = rgamma(n_participants,
+                                 shape = input$gamma_s, 
+                                 rate = input$gamma_r) 
             )
       }
       
       if (sim_params$num_vars == 1) {
          
          sim_params$sim_data <- data.frame("X1" = new_var)
+         
       } else {
          
          sim_var_name = paste("X", sim_params$num_vars, sep = "")
@@ -221,6 +311,13 @@ shinyServer(function(input, output, session) {
       }
       
       sim_params$num_vars = sim_params$num_vars  + 1
+      
+      ### Initialize variables for constructing conditional distribution
+      sim_params$cond_dist_step = 1
+      sim_params$param_data <- sim_params$sim_data # Used for calculating conditional mean / var
+      sim_params$var_cnt <- 1
+      sim_params$var_choices <- names(sim_params$sim_data)
+      names(sim_params$var_choices) <- sim_params$var_choices
       
       updateRadioButtons(
          session,
@@ -230,10 +327,28 @@ shinyServer(function(input, output, session) {
          selected = character(0)
       )
       
+      ## Updates select input with current simulated data variables
+      ## Allows user to build conditional distribution for a new variable 
+      ## using these previously generated variables
+      ## Only displayed if "independ_dist" == "No"
+      
+      updateSelectInput(
+         session,
+         inputId = 'conditional_vars',
+         label = "Choose Variables",
+         names(sim_params$sim_data)
+      )
+      
    })
    
-   output$sim_data <- renderTable({head(sim_params$sim_data)})
+   output$sim_data <- renderTable({
+      req(sim_params$sim_data)
+      head(sim_params$sim_data)
+      
+      })
    
+   
+   ### !! I belive all this observe stuff should be done in javascript
    observe({
       # When number of variables in greater then 1
       # Give option to choose if new variable is dependent on previous
@@ -247,19 +362,158 @@ shinyServer(function(input, output, session) {
       
    })
    
-   observeEvent(input$independ_dist, {
-       if (sim_params$num_vars > 1) {  
+   #### Dynamic Display of operation choices for mean/var specification #### 
+   observe({
+      req(input$independ_dist)
+      if (sim_params$num_vars > 1) {
          if (input$independ_dist == "Yes") {
             shinyjs::show("data_dist")
             shinyjs::show("dist_params")
+            
+            shinyjs::hide("cond_dist_title")
+            shinyjs::hide("loc_scale_column")
          } else {
             shinyjs::hide("data_dist")
             shinyjs::hide("dist_params")
+            
+            shinyjs::show("cond_dist_title")
+            shinyjs::show("loc_scale_column")
          }
-          }
-   }, ignoreInit = TRUE)  
+      }
+         
+   })
    
+   observe({
+      req(input$independ_dist)
+      req(input$conditional_vars)
+    
+         if (input$conditional_vars[1] == "") {
+            shinyjs::hide("unary_operation")
+            shinyjs::hide("multi_operation")
+            shinyjs::hide("power_val")
+         } else if (length(input$conditional_vars) == 1) {
+            shinyjs::show("unary_operation")
+            shinyjs::hide("multi_operation")
+            # Need to specify because we don't want this to capture case where no variables are selected
+         } else {
+            shinyjs::hide("unary_operation")
+            shinyjs::show("multi_operation")
+         }
+      
+         if (input$unary_operation == "^") {
+            shinyjs::show("power_val")
+         } else {
+            shinyjs::hide("power_val")
+         }
+         
+   })
+   
+   # observeEvent(input$independ_dist, {
+   #     if (sim_params$num_vars > 1) {  
+   #       if (input$independ_dist == "Yes") {
+   #          shinyjs::show("data_dist")
+   #          shinyjs::show("dist_params")
+   #          
+   #          shinyjs::hide("cond_dist_title")
+   #          shinyjs::hide("param_specification")
+   #          shinyjs::hide("conditional_vars")
+   #          shinyjs::hide("unary_operation")
+   #          shinyjs::hide("power_val")
+   #          shinyjs::hide("multi_operation")
+   #          shinyjs::hide("apply_operation")
+   #          shinyjs::hide("calc_mean")
+   # 
+   #          
+   #       } else {
+   #          shinyjs::hide("data_dist")
+   #          shinyjs::hide("dist_params")
+   #          shinyjs::show("cond_dist_title")
+   #          shinyjs::show("param_specification")
+   #          shinyjs::show("conditional_vars")
+   #          shinyjs::show("apply_operation")
+   #          shinyjs::show("calc_mean")
+   #          
+   #       }
+   #        }
+   # }, ignoreInit = TRUE)  
 
+   
+   #### Mean/Var/Error calculation reactivity ####
+   
+   conditional_vars <- reactive({
+      req(sim_params$param_data)
+      sim_params$param_data %>% 
+         select(sim_params$var_choices[input$conditional_vars])
+   })
+   
+   output$var_creation_warning <- renderText({
+      req(conditional_vars)
+      if (input$unary_operation == "ln" & any(conditional_vars() <= 0)) {
+         validate("Selected data must be postive real number for this transformation")
+      } else if (input$unary_operation == "^" & !is.integer(input$power_val) & any(conditional_vars() < 0)) {
+         validate("Taking root of negative number may produce NaNs")
+      } 
+   })
+   
+   observeEvent(input$apply_operation, {
+      # current_data <- sim_params$param_data %>% 
+      #    select(sim_params$var_choices[input$conditional_vars])
+      
+      current_data <- conditional_vars()
+      print(current_data)
+      
+      
+      
+      prefix = switch(sim_params$cond_dist_step, "1" = "mean", "2" = "var")
+      
+      new_var_name <- paste(
+         paste0(prefix, "__", sep = ""), 
+         sim_params$var_cnt, 
+         sep = "")
+      if (length(input$conditional_vars) == 1) {
+         
+         display_name <- paste(input$unary_operation, 
+                               input$conditional_vars,
+                               sep = "; ")
+         
+         pow = input$power_val
+         print(class(pow))
+         new_var <- unary_operator(input$unary_operation,
+                                   current_data, 
+                                   pow)
+            
+            
+         
+      } else if (length(input$conditional_vars) > 1) {
+         
+         display_name <- paste(input$multi_operation, 
+                               paste(input$conditional_vars, 
+                                     collapse = ", "),
+                               sep = "; ")
+         
+         new_var <- apply(current_data, 1, 
+                          function(x) {
+                             n_ary_operator(input$multi_operation, x)
+                          } 
+         )
+      }
+      
+      sim_params$var_choices[display_name] = new_var_name
+      sim_params$param_data[new_var_name] = new_var
+      
+      updateSelectInput(
+         session,
+         inputId = 'conditional_vars',
+         label = "Choose Variables",
+         names(sim_params$var_choices)
+      )
+      
+      sim_params$var_cnt <- sim_params$var_cnt + 1
+   })
+
+
+   
+   ## Open modal dialog to simulate data ##
    observeEvent(input$data_choice, {
       if (input$data_choice == "Simulate") {
          
@@ -268,15 +522,17 @@ shinyServer(function(input, output, session) {
       }
    }, ignoreInit = TRUE)
   
-   covariates <- reactive({
-    
-       prob_values$data %>% 
-        select(prob_values$variable_choices[input$calc_vars])
-    
-  })
-  
+   
    
    ##### Calculations for Randomization Design ####
+   
+   covariates <- reactive({
+      
+      prob_values$data %>% 
+         select(prob_values$variable_choices[input$calc_vars])
+      
+   })
+   
    # Here we use the input var
   var_wgts <- reactive({
     sapply(input$calc_vars, function(x){
@@ -339,7 +595,7 @@ shinyServer(function(input, output, session) {
       
       # Add new variable 
       new_var_name = paste0('z', prob_values$agg_cnt, '__')
-      new_var_disp = paste0('Z', prob_values$agg_cnt)
+      new_var_disp = paste0('Synthetic ', prob_values$agg_cnt)
       
       # Update data frame 
       prob_values$data[new_var_name] <- prob_values$probs
