@@ -408,36 +408,6 @@ shinyServer(function(input, output, session) {
          
    })
    
-   # observeEvent(input$independ_dist, {
-   #     if (sim_params$num_vars > 1) {  
-   #       if (input$independ_dist == "Yes") {
-   #          shinyjs::show("data_dist")
-   #          shinyjs::show("dist_params")
-   #          
-   #          shinyjs::hide("cond_dist_title")
-   #          shinyjs::hide("param_specification")
-   #          shinyjs::hide("conditional_vars")
-   #          shinyjs::hide("unary_operation")
-   #          shinyjs::hide("power_val")
-   #          shinyjs::hide("multi_operation")
-   #          shinyjs::hide("apply_operation")
-   #          shinyjs::hide("calc_mean")
-   # 
-   #          
-   #       } else {
-   #          shinyjs::hide("data_dist")
-   #          shinyjs::hide("dist_params")
-   #          shinyjs::show("cond_dist_title")
-   #          shinyjs::show("param_specification")
-   #          shinyjs::show("conditional_vars")
-   #          shinyjs::show("apply_operation")
-   #          shinyjs::show("calc_mean")
-   #          
-   #       }
-   #        }
-   # }, ignoreInit = TRUE)  
-
-   
    #### Mean/Var/Error calculation reactivity ####
    
    conditional_vars <- reactive({
