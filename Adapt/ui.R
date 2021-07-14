@@ -11,7 +11,7 @@ library(shiny)
 library(shinydashboard)
 library(tidyverse)
 library(shinythemes)
-source("R/custom_ui.R")
+
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(

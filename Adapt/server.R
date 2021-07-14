@@ -202,12 +202,15 @@ shinyServer(function(input, output, session) {
    data_gen_modal <- modalDialog(
       fluidPage(
          shinyjs::useShinyjs(),
-                fluidRow(
-                   column(1,
-                          numericInput("n_participants",
-                                       "Number of Participants",
-                                       value = 20))),
+                
          column(3, 
+          fluidRow(
+               column(5,  numericInput("n_participants",
+                                       "Number of Participants",
+                                       value = 20)
+                      )
+                ),
+          textInput("sim_var_name", "Enter name for variable:"),
             uiOutput("var_title"),
             shinyjs::hidden(
                radioButtons(
@@ -343,7 +346,8 @@ shinyServer(function(input, output, session) {
                 )
          )
       ,
-      title = "Simulate Dataset"
+      title = "Simulate Dataset", 
+      footer = actionButton("simulate_data", "Finish Simulation")
       ,
       size = "l" # made modal window large
 
@@ -352,7 +356,18 @@ shinyServer(function(input, output, session) {
    
    # Display name of new variable
    output$var_title <- renderUI({
-      tags$div(h3(strong(paste("Generating X", sim_params$num_vars, sep = ""))))
+      req(input$sim_var_name)
+      sim_name <- stringr::str_trim(input$sim_var_name) # Remove leading / trailing white space
+      validate(
+         need(!stringr::str_detect(sim_name, "^\\d"), "Name cannot start with digit."),
+         need(!stringr::str_detect(sim_name, "^_"), "Name cannot start with '_'."),
+         need(!stringr::str_detect(sim_name, "[[:space:]]"), "Name cannot contain spaces (replace with _)."),
+         need(!stringr::str_detect(sim_name, "[^_[:^punct:]]"), "Name cannot contain punctuation."),
+         need(!stringr::str_detect(sim_name, "[A-Z]"), "Name should be lower case."),
+         need(!(sim_name %in% names(sim_params$sim_data)), "Name exists in data. Cannot have duplicate variable names.")
+         )
+      
+      tags$div(h3(strong(paste0("Generating ", input$sim_var_name))))
    })
    
    # Title for stage of conditional distribution
@@ -375,13 +390,10 @@ shinyServer(function(input, output, session) {
    
    #### ObserveEvent: Generating new variable for simulated data set ####
    observeEvent(input$gen_var, {
-      
-      
-      
       n_participants <- input$n_participants
       
       ## If new variable is independent (or first variable) then draw samples
-      if (input$independ_dist == "Yes") {
+      if (input$independ_dist == "Yes" || sim_params$num_vars == 1) {
          new_var <- switch (
             input$data_dist,
             "Gaussian"  = rnorm(
@@ -389,8 +401,8 @@ shinyServer(function(input, output, session) {
                mean = input$guass_mu,
                sd = input$guass_sd
             ),
-            "Bernoulli" = 1 * rbernoulli(n_participants,
-                                         p = input$bern_p),
+            "Bernoulli" =  as.integer(rbernoulli(n_participants,
+                                         p = input$bern_p)),
             
             "Binomial"  = rbinom(n_participants,
                                  size = input$bin_n,
@@ -405,16 +417,15 @@ shinyServer(function(input, output, session) {
       } else {
          sd <- sqrt(exp(sim_params$sim_variance))
          
-         new_var <- sim_params$sim_mean + sd*sim_params$error
+         new_var <- sim_params$sim_mean + sd*sim_params$sim_error
       }
       
       if (sim_params$num_vars == 1) {
-         
-         sim_params$sim_data <- data.frame("X1" = new_var)
-         
+         sim_var_name = stringr::str_trim(input$sim_var_name)
+         sim_params$sim_data <- data.frame(new_var)
+         colnames(sim_params$sim_data) <- sim_var_name
       } else {
-         
-         sim_var_name = paste("X", sim_params$num_vars, sep = "")
+         sim_var_name = stringr::str_trim(input$sim_var_name)
          sim_params$sim_data[sim_var_name] <- new_var
       }
       
@@ -427,8 +438,13 @@ shinyServer(function(input, output, session) {
       sim_params$var_choices <- names(sim_params$sim_data)
       names(sim_params$var_choices) <- sim_params$var_choices
       
+      sim_params$sim_mean <- NULL
+      sim_params$sim_variance <- NULL
+      sim_params$sim_error <- NULL
+      
 
       shinyjs::reset("independ_dist")
+      shinyjs::reset("sim_var_name")
       
       ## Updates select input with current simulated data variables
       ## Allows user to build conditional distribution for a new variable 
@@ -508,7 +524,7 @@ shinyServer(function(input, output, session) {
       req(input$independ_dist)
       req(input$conditional_vars)
     
-         if (input$conditional_vars[1] == "") {
+         if (input$conditional_vars[1] == "" || is.null(input$conditional_vars)) {
             shinyjs::hide("unary_operation")
             shinyjs::hide("multi_operation")
             shinyjs::hide("power_val")
@@ -782,7 +798,7 @@ shinyServer(function(input, output, session) {
 
    ## Sample noise from selected distribution
    observeEvent(input$calc_error, {
-      sim_params$error <- switch (
+      sim_params$sim_error <- switch (
          tolower(input$error_dist),
          "gaussian" = rnorm(input$n_participants,
                             0,
@@ -798,6 +814,27 @@ shinyServer(function(input, output, session) {
       shinyjs::hide("calc_error")
    })
 
+   observeEvent(input$simulate_data, {
+      data <- sim_params$sim_data
+      
+      updateSelectInput(
+         session = session,
+         inputId = 'calc_vars',
+         choices = names(data)
+      )
+      
+      
+      variable_choices <- names(data)
+      names(variable_choices) <- variable_choices
+      
+      prob_values$probs = numeric(length = nrow(data))
+      prob_values$treatment = numeric(length = nrow(data))
+      prob_values$variable_choices = variable_choices
+      prob_values$data = data
+      
+      removeModal()
+      
+   })
    
    ## Open modal dialog to simulate data ##
    observeEvent(input$data_choice, {
