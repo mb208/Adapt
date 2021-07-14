@@ -1,4 +1,6 @@
 library(shiny)
+library(DT)
+library(stringr)
 
 #### Function to Apply different operators to input variable(s) ####
 
@@ -8,19 +10,16 @@ n_ary_operator <- function(operator, var) {
    stopifnot(length(var) > 1)
    
    ## Make sure operator is in list of operators
-   stopifnot(operator %in% c("+", "-", "x", "/"))
+   # stopifnot(operator %in% c("+", "-", "x", "/"))
    
    switch(operator,
-          "+" = reduce(var, `+`),
-          "-" = reduce(var, `-`),
-          "x" = reduce(var, `*`),
-          "/" = reduce(var, `/`))
+          # "+" = reduce(var, `+`),
+          # "-" = reduce(var, `-`),
+          "multiply" = reduce(var, `*`),
+          "divide" = reduce(var, `/`))
 }
 
-unary_operator <- function(operator, var, pow) {
-   ## Make sure operator is in list of operators
-   stopifnot(operator %in% c("exp", "ln", "^"))
-   
+unary_operator <- function(operator, var, pow=1) {
    ## Coniditions for power to work
    stopifnot((operator == "^" & exists("pow")) || operator != "^")
    stopifnot((operator == "^" & is.numeric(pow)) || operator != "^")
@@ -28,10 +27,38 @@ unary_operator <- function(operator, var, pow) {
    switch(operator,
           "exp" = exp(var),
           "ln" = log(var),
-          "^" = var^pow)
-   
+          "^" = var^pow,
+          "None" = I(var)
+   )
 }
 
+
+#### List mapping input arguments to functions ####
+
+expit <- function(x) {
+   exp(x) / (1 + exp(x))
+}
+
+arctan <- function(x) {
+   (1 / pi) * atan(x) + 1 / 2
+}
+
+adj_tanh <- function(x) {
+   .5 * (tanh(x) + 1)
+}
+
+
+data_agg <- list("sum" = sum,
+                 "average" = mean,
+                 "weighted average" = weighted.mean)
+
+prob_maps <- list("expit" = expit,
+                  "arctan" = arctan,
+                  "tanh" = adj_tanh)
+
+
+
+#### UI utilities ####
 
 #### Creating list of UIs for distribution inputs ####
 get_dist_ui <- function(dist) {
@@ -61,31 +88,34 @@ get_dist_ui <- function(dist) {
       )
       
    )
+}
+
+
+err_dist_ui <- function(dist) {
    
+   switch (dist,
+           "gaussian" = tags$div(
+              h4(strong("Gaussian Error")),
+              numericInput("guass_err_sd", 
+                           "SD",
+                           value = 1)
+              ),
+           "double exponential" = tags$div(
+              h4(strong("Double Exponential Error")),
+              numericInput("dexp_err_scale",
+                           "Scale",
+                           value = 1))
+           )
 }
 
-#### List mapping input arguments to functions ####
-
-expit <- function(x) {
-  exp(x) / (1 + exp(x))
+create_btn <- function(x) {
+   paste0(
+      '<button class="btn btn-default action-button btn-info action_button" id="select_',
+      x, 
+      '" type="button" onclick=get_id(this.id)></button>'
+   )
 }
-
-arctan <- function(x) {
-  (1 / pi) * atan(x) + 1 / 2
-}
-
-adj_tanh <- function(x) {
-  .5 * (tanh(x) + 1)
-}
-
-
-data_agg <- list("sum" = sum,
-                 "average" = mean,
-                 "weighted average" = weighted.mean)
-
-prob_maps <- list("expit" = expit,
-                  "arctan" = arctan,
-                  "tanh" = adj_tanh)
+                           
 
 
 # Define server logic required to draw a histogram
@@ -155,11 +185,17 @@ shinyServer(function(input, output, session) {
       
       num_vars = 1 ,
       sim_data = NULL,
-      cond_dist_step = 0 # tells us what stage we are at when generating location scale model
+      cond_dist_step = 0, # tells us what stage we are at when generating location scale model
                            # 0 = Not active
                            # 1 = Specifying mean
                            # 2 = Specifying variance
                            # 3 = Specifying error
+      
+      expression_tbl = tibble(Select = character(0), 
+                              Variables = character(0), 
+                              Expression = character(0), 
+                              Arguments = character(0), 
+                              Name = character(0))
    )
    
    #### Model Dialog UI ####
@@ -204,43 +240,106 @@ shinyServer(function(input, output, session) {
                        shinyjs::hidden(
                           tags$div(id="loc_scale_column",
                                  uiOutput("param_specification"),  # Are we specifying the mean, var, or error
-                                    selectInput(
-                                       inputId = 'conditional_vars',
-                                       label = "Choose Variables",
-                                       list(),
-                                       multiple=TRUE, 
-                                       selectize=TRUE
-                                    ),
-                                 shinyjs::hidden(selectizeInput(
-                                    inputId = 'unary_operation',
-                                    label = "Apply operation to chosen variable",
-                                    c("exp","ln", "^"),
-                                    options = list(maxItems = 1,
-                                                   placeholder = "select operation",
-                                                   onInitialize = I('function() { this.setValue(0); }'))
-                                 )),
-                                 shinyjs::hidden(selectizeInput(
-                                    inputId = 'multi_operation',
-                                    label = "Apply operation to chosen variables",
-                                    c("+","-", "x", "/"),
-                                    options = list(maxItems = 1,
-                                                   placeholder = "select operation",
-                                                   onInitialize = I('function() { this.setValue(0); }'))
-                                 )),
+                                 tags$div(id = "cond_operations",
+                                          selectInput(
+                                             inputId = 'conditional_vars',
+                                             label = "Choose Variables",
+                                             list(),
+                                             multiple=TRUE, 
+                                             selectize=TRUE
+                                          ),
+                                          shinyjs::hidden(selectizeInput(
+                                             inputId = 'multi_operation',
+                                             label = "Apply operation to chosen variables",
+                                             list(
+                                                "weighted sum",
+                                                "multiply",
+                                                "divide"),
+                                             options = list(maxItems = 1,
+                                                            placeholder = "select operation",
+                                                            onInitialize = I('function() { this.setValue(0); }'))
+                                          )),
+                                          shinyjs::hidden(
+                                             uiOutput("weighted_sum_inputs")
+                                          ),
+                                          shinyjs::hidden(selectizeInput(
+                                             inputId = 'unary_operation',
+                                             label = "Apply operation to chosen variable",
+                                             c("exp","ln", "^", "None"),
+                                             options = list(maxItems = 1,
+                                                            placeholder = "select operation",
+                                                            onInitialize = I('function() { this.setValue(0); }'))
+                                          )),
+                                          shinyjs::hidden(
+                                             numericInput("power_val", "Exponent Value:", value = 1)
+                                             ),
+                                          actionButton("apply_operation", "Apply Operations")
+                                          )
+                                 ,
                                  shinyjs::hidden(
-                                    numericInput("power_val", "Exponent Value:", value = 1)
-                                 ),
-                                 actionButton("apply_operation", "Apply Operations"),
+                                    selectizeInput(
+                                       inputId = 'error_dist',
+                                       label = "Select Error Distribution",
+                                       list("Gaussian",
+                                            "Double Exponential"),
+                                       options = list(maxItems = 1,
+                                                      placeholder = "select distribution",
+                                                      onInitialize = I('function() { this.setValue(0); }'))
+                                    ),
+                                    uiOutput("cond_err_dist")),
+                                 shinyjs::hidden(actionButton("calc_error", "Generate Error")),
                                  br(),
                                  br(),
-                                 br(),
-                                 actionButton("calc_mean", "Calculate Mean")
+                                 br()
                        )))
                        ,
                 column(3,
-                       tableOutput("sim_data"),
+                      # tableOutput("sim_data"),
                        textOutput("var_creation_warning")
-                )
+                ),
+                column(4,
+                       # shinyjs::hidden(
+                       #    tags$table(
+                       #       id = "loc-scale-table",
+                       #       border = 2,
+                       #       tags$thead(tags$tr(
+                       #          tags$th(
+                       #             colspan = 5,
+                       #             height = 50,
+                       #             width = 600,
+                       #             "Mean Generation",
+                       #             style = 'text-align: center'
+                       #          )
+                       #       )),
+                       #       tags$tbody(
+                       #          id = "loc-scale-body",
+                       #          tags$tr(
+                       #             id = "loc-scale-row1",
+                       #             tags$td(align = "center", strong("Select")),
+                       #             tags$td(align = "center", strong("Variables")),
+                       #             tags$td(align = "center", strong("Operation")),
+                       #             tags$td(align = "center", strong("Weights")),
+                       #             tags$td(align = "center", strong("Variable Name"))
+                       #          )
+                       #       )
+                       # )
+                       # ),
+                       
+                        shinyjs::hidden(
+                           div(id = "loc_scale",
+                               DT::dataTableOutput(outputId = "loc_scale_tbl"),
+                               tags$script(
+                               HTML("function get_id(clicked_id) {
+                               Shiny.setInputValue('expr_row', 
+                                 clicked_id.split('_')[1], 
+                                 {priority: 'event'});
+                                    }"))
+                               )
+                        ),
+                       shinyjs::hidden(actionButton("calc_mean", "Generate Mean")),
+                       shinyjs::hidden(actionButton("calc_variance", "Generate Variance"))
+
+                       )
                 )
          )
       ,
@@ -283,21 +382,30 @@ shinyServer(function(input, output, session) {
       
       ## If new variable is independent (or first variable) then draw samples
       if (input$independ_dist == "Yes") {
-         new_var <- switch (input$data_dist,
-            "Gaussian"  = rnorm(n_participants,
-                               mean = input$guass_mu,
-                               sd = input$guass_sd),
-            "Bernoulli" = 1*rbernoulli(n_participants, 
-                                     p = input$bern_p),
+         new_var <- switch (
+            input$data_dist,
+            "Gaussian"  = rnorm(
+               n_participants,
+               mean = input$guass_mu,
+               sd = input$guass_sd
+            ),
+            "Bernoulli" = 1 * rbernoulli(n_participants,
+                                         p = input$bern_p),
             
-            "Binomial"  = rbinom(n_participants, 
-                                 size = input$bin_n, 
+            "Binomial"  = rbinom(n_participants,
+                                 size = input$bin_n,
                                  p = input$bin_p),
             
-            "Gamma"     = rgamma(n_participants,
-                                 shape = input$gamma_s, 
-                                 rate = input$gamma_r) 
+            "Gamma"     = rgamma(
+               n_participants,
+               shape = input$gamma_s,
+               rate = input$gamma_r
             )
+         )
+      } else {
+         sd <- sqrt(exp(sim_params$sim_variance))
+         
+         new_var <- sim_params$sim_mean + sd*sim_params$error
       }
       
       if (sim_params$num_vars == 1) {
@@ -319,13 +427,8 @@ shinyServer(function(input, output, session) {
       sim_params$var_choices <- names(sim_params$sim_data)
       names(sim_params$var_choices) <- sim_params$var_choices
       
-      updateRadioButtons(
-         session,
-         "independ_dist",
-         label = "Are the new variable and previous variables\n independently distributed?",
-         choices = c("Yes", "No"),
-         selected = character(0)
-      )
+
+      shinyjs::reset("independ_dist")
       
       ## Updates select input with current simulated data variables
       ## Allows user to build conditional distribution for a new variable 
@@ -363,6 +466,7 @@ shinyServer(function(input, output, session) {
    })
    
    #### Dynamic Display of operation choices for mean/var specification #### 
+   
    observe({
       req(input$independ_dist)
       if (sim_params$num_vars > 1) {
@@ -372,15 +476,32 @@ shinyServer(function(input, output, session) {
             
             shinyjs::hide("cond_dist_title")
             shinyjs::hide("loc_scale_column")
+            # shinyjs::hide("loc-scale-table")
+            # shinyjs::hide("loc_scale_tbl")
+            shinyjs::hide("loc_scale")
+            shinyjs::hide("calc_mean")
          } else {
             shinyjs::hide("data_dist")
             shinyjs::hide("dist_params")
             
             shinyjs::show("cond_dist_title")
             shinyjs::show("loc_scale_column")
+            # shinyjs::show("loc-scale-table")
+            # shinyjs::show("loc_scale_tbl")
+            shinyjs::show("calc_mean")
+            shinyjs::show("loc_scale")
          }
       }
          
+   })
+   
+   # logic for showing equation panels
+   observe({
+      if(sim_params$cond_dist_step==3) {
+         shinyjs::hide("cond_operations")
+      } else if (any(sim_params$cond_dist_step == c(1,2))) {
+         shinyjs::show("cond_operations")
+      }
    })
    
    observe({
@@ -405,7 +526,17 @@ shinyServer(function(input, output, session) {
          } else {
             shinyjs::hide("power_val")
          }
-         
+      
+   })
+   
+   observe({
+      req(input$multi_operation)
+      if (input$multi_operation == "weighted sum") {
+         shinyjs::show("weighted_sum_inputs")
+      } else {
+         shinyjs::hide("weighted_sum_inputs")
+      }
+      
    })
    
    #### Mean/Var/Error calculation reactivity ####
@@ -425,14 +556,22 @@ shinyServer(function(input, output, session) {
       } 
    })
    
+   ### Get weights if weighted sum chosen
+   output$weighted_sum_inputs <- renderUI({
+      req(input$multi_operation == "weighted sum")
+      tags$div(
+         h4(strong("Assign weights:")),
+         purrr::map(input$conditional_vars,
+                    ~ numericInput(inputId = paste('wgt_',.x) ,
+                                   label = .x, 
+                                   value = round(1/length(input$conditional_vars), 3))
+         )
+      )
+   })
+   
+   
    observeEvent(input$apply_operation, {
-      # current_data <- sim_params$param_data %>% 
-      #    select(sim_params$var_choices[input$conditional_vars])
-      
       current_data <- conditional_vars()
-      print(current_data)
-      
-      
       
       prefix = switch(sim_params$cond_dist_step, "1" = "mean", "2" = "var")
       
@@ -440,32 +579,54 @@ shinyServer(function(input, output, session) {
          paste0(prefix, "__", sep = ""), 
          sim_params$var_cnt, 
          sep = "")
+      
+      input_val = "NA"
+      display_name <- paste("expression", sim_params$var_cnt, collapse = " ")
+      
       if (length(input$conditional_vars) == 1) {
          
-         display_name <- paste(input$unary_operation, 
-                               input$conditional_vars,
-                               sep = "; ")
+         operation_name = input$unary_operation
          
-         pow = input$power_val
-         print(class(pow))
-         new_var <- unary_operator(input$unary_operation,
-                                   current_data, 
-                                   pow)
+         ## If they choose to take power of variable
+         if (operation_name=="^") {
             
+            pow = input$power_val
+            input_val = as.character(pow)
             
+            new_var <- unary_operator(operation_name,
+                                      current_data, 
+                                      pow)
+            
+         } else {
+            
+            new_var <- unary_operator(operation_name,
+                                      current_data)
+         }
          
       } else if (length(input$conditional_vars) > 1) {
          
-         display_name <- paste(input$multi_operation, 
-                               paste(input$conditional_vars, 
-                                     collapse = ", "),
-                               sep = "; ")
-         
-         new_var <- apply(current_data, 1, 
-                          function(x) {
-                             n_ary_operator(input$multi_operation, x)
-                          } 
-         )
+         operation_name = input$multi_operation
+         # Logic changes if they choose weighted sum
+         if (input$multi_operation == "weighted sum") {
+            
+            wghts <- sapply(input$conditional_vars, function(x){
+               input[[paste('wgt_',x)]]})
+            
+            input_val = paste0(wghts, collapse = ", ")
+            
+            new_var <- apply(current_data, 1, 
+                             function(x) {
+                                sum(x*wghts)
+                             }
+            ) 
+            
+         } else {
+               new_var <- apply(current_data, 1, 
+                                function(x) {
+                                   n_ary_operator(operation_name, x)
+                                   }
+                                )
+               }
       }
       
       sim_params$var_choices[display_name] = new_var_name
@@ -478,9 +639,164 @@ shinyServer(function(input, output, session) {
          names(sim_params$var_choices)
       )
       
+      # check_input <- paste0('<input type="checkbox"/>')
+      # insertUI("#loc-scale-body",
+      #          where = "beforeEnd",
+      #          ui = tags$tr(class = "loc-scale-build",
+      #                       tags$td(HTML(check_input)),
+      #                       tags$td(align = "center", 
+      #                               style = "word-wrap: break-word;",
+      #                               paste0(input$conditional_vars,
+      #                                      collapse = ", ")),
+      #                       tags$td(align = "center", operation_name),
+      #                       tags$td(align = "center", input_val),
+      #                       tags$td(align = "center", display_name)
+      #          )
+      # )
+      
+      sim_params$expression_tbl <- sim_params$expression_tbl  %>%
+         dplyr::bind_rows(
+            tibble(
+               Select = create_btn(sim_params$var_cnt),
+               Variables = paste0(input$conditional_vars,
+                                  collapse = ", "),
+               Expression = operation_name,
+               Arguments = input_val,
+               Name = display_name
+            )
+         )
+      
+      
+      
       sim_params$var_cnt <- sim_params$var_cnt + 1
+      
+
+      shinyjs::reset("multi_operation")
+      shinyjs::reset("unary_operation")
+   })
+   
+    output$loc_scale_tbl <- DT::renderDataTable({
+       datatable(sim_params$expression_tbl,
+                 options = list(dom="t",
+                                paging = FALSE,
+                                ordering = FALSE), 
+                 escape = F,
+                 rownames = F,
+                 selection = 'single')
+    })
+   
+   
+   #### Conditional Mean ####
+   ## Store variable with associated expression as mean
+   observeEvent(input$calc_mean, {
+      row_id <- as.numeric(input$expr_row) ## set in javascript code
+      
+      # We extract the variable display name from the table using row_id
+      # Using this we get the column name from var_choices
+      # With this we can extract the appropiate column for the mean
+      
+      col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
+      sim_params$sim_mean <- sim_params$param_data[[col_id]]
+      
+      
+      ### Initialize variables for constructing conditional distribution
+      sim_params$cond_dist_step = 2
+      sim_params$param_data <- sim_params$sim_data # Used for calculating conditional mean / var
+      sim_params$var_cnt <- 1
+      sim_params$var_choices <- names(sim_params$sim_data)
+      names(sim_params$var_choices) <- sim_params$var_choices
+      
+      sim_params$expression_tbl = tibble(Select = character(0), 
+                                         Variables = character(0), 
+                                         Expression = character(0), 
+                                         Arguments = character(0), 
+                                         Name = character(0))
+      
+      
+      updateSelectInput(
+         session,
+         inputId = 'conditional_vars',
+         label = "Choose Variables",
+         names(sim_params$var_choices)
+      )
+      
+      shinyjs::reset("multi_operation")
+      shinyjs::reset("unary_operation")
+      
+      shinyjs::hide("calc_mean")
+      shinyjs::show("calc_variance")
+   })
+   
+   #### Conditional Variance ####
+   # Store variable with associated expression as variance
+   observeEvent(input$calc_variance, {
+      row_id <- as.numeric(input$expr_row) ## set in javascript code
+      
+      # We extract the variable display name from the table using row_id
+      # Using this we get the column name from var_choices
+      # With this we can extract the appropiate column for the mean
+      
+      col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
+      sim_params$sim_variance <- sim_params$param_data[[col_id]]
+
+      ### Initialize variables for constructing conditional distribution
+      sim_params$cond_dist_step = 3
+      sim_params$param_data <- sim_params$sim_data # Used for calculating conditional mean / var
+      sim_params$var_cnt <- 1
+      sim_params$var_choices <- names(sim_params$sim_data)
+      names(sim_params$var_choices) <- sim_params$var_choices
+
+      sim_params$expression_tbl = tibble(Select = character(0),
+                                         Variables = character(0),
+                                         Expression = character(0),
+                                         Arguments = character(0),
+                                         Name = character(0))
+      
+      updateSelectInput(
+         session,
+         inputId = 'conditional_vars',
+         label = "Choose Variables",
+         names(sim_params$var_choices)
+      )
+   
+      shinyjs::reset("multi_operation")
+      shinyjs::reset("unary_operation")
+  
+      
+      shinyjs::hide("calc_variance")
+      shinyjs::hide("loc_scale")
+
+      
+      shinyjs::show("calc_error")
+      shinyjs::show("error_dist")
+      shinyjs::show("cond_err_dist")
    })
 
+   #### Conditional Error ####
+   # Display required parameters for selected distribution
+    output$cond_err_dist <-  renderUI({
+       req(input$error_dist)
+       err_dist_ui(tolower(input$error_dist))
+    })
+    
+
+   ## Sample noise from selected distribution
+   observeEvent(input$calc_error, {
+      sim_params$error <- switch (
+         tolower(input$error_dist),
+         "gaussian" = rnorm(input$n_participants,
+                            0,
+                            sd = input$guass_err_sd),
+         "double exponential" = nimble::rdexp(input$n_participants,
+                                              0,
+                                              input$dexp_err_scale)
+      )
+      
+      
+      shinyjs::hide("cond_err_dist")
+      shinyjs::hide("error_dist")
+      shinyjs::hide("calc_error")
+   })
 
    
    ## Open modal dialog to simulate data ##
@@ -650,7 +966,7 @@ shinyServer(function(input, output, session) {
    
    ### Assign treatment to participants ###
    output$selected <-  renderTable({head(upload_data())})
-   output$cnt <-  renderText({ prob_values$agg_cnt})
+   output$cnt <-  renderText({ prob_values$agg_cnt })
 
    output$prob_plot <-  renderPlot({
      req(input$apply_aggs)
