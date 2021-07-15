@@ -300,33 +300,6 @@ shinyServer(function(input, output, session) {
                        textOutput("var_creation_warning")
                 ),
                 column(4,
-                       # shinyjs::hidden(
-                       #    tags$table(
-                       #       id = "loc-scale-table",
-                       #       border = 2,
-                       #       tags$thead(tags$tr(
-                       #          tags$th(
-                       #             colspan = 5,
-                       #             height = 50,
-                       #             width = 600,
-                       #             "Mean Generation",
-                       #             style = 'text-align: center'
-                       #          )
-                       #       )),
-                       #       tags$tbody(
-                       #          id = "loc-scale-body",
-                       #          tags$tr(
-                       #             id = "loc-scale-row1",
-                       #             tags$td(align = "center", strong("Select")),
-                       #             tags$td(align = "center", strong("Variables")),
-                       #             tags$td(align = "center", strong("Operation")),
-                       #             tags$td(align = "center", strong("Weights")),
-                       #             tags$td(align = "center", strong("Variable Name"))
-                       #          )
-                       #       )
-                       # )
-                       # ),
-                       
                         shinyjs::hidden(
                            div(id = "loc_scale",
                                DT::dataTableOutput(outputId = "loc_scale_tbl"),
@@ -658,21 +631,7 @@ shinyServer(function(input, output, session) {
          names(sim_params$var_choices)
       )
       
-      # check_input <- paste0('<input type="checkbox"/>')
-      # insertUI("#loc-scale-body",
-      #          where = "beforeEnd",
-      #          ui = tags$tr(class = "loc-scale-build",
-      #                       tags$td(HTML(check_input)),
-      #                       tags$td(align = "center", 
-      #                               style = "word-wrap: break-word;",
-      #                               paste0(input$conditional_vars,
-      #                                      collapse = ", ")),
-      #                       tags$td(align = "center", operation_name),
-      #                       tags$td(align = "center", input_val),
-      #                       tags$td(align = "center", display_name)
-      #          )
-      # )
-      
+     
       sim_params$expression_tbl <- sim_params$expression_tbl  %>%
          dplyr::bind_rows(
             tibble(
