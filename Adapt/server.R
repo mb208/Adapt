@@ -151,7 +151,6 @@ shinyServer(function(input, output, session) {
    
 # Set initial data values    
  observeEvent(input$file_info, {
-    
 
     data <- upload_data()
     updateSelectInput(
@@ -432,17 +431,21 @@ shinyServer(function(input, output, session) {
       sim_params$num_vars = sim_params$num_vars  + 1
       
       ### Initialize variables for constructing conditional distribution
-      sim_params$cond_dist_step = 1
+      sim_params$cond_dist_step <- 1
       sim_params$param_data <- sim_params$sim_data # Used for calculating conditional mean / var
       sim_params$var_cnt <- 1
       sim_params$var_choices <- names(sim_params$sim_data)
       names(sim_params$var_choices) <- sim_params$var_choices
+      sim_params$expression_tbl = tibble(Select = character(0),
+                                         Variables = character(0),
+                                         Expression = character(0),
+                                         Arguments = character(0),
+                                         Name = character(0))
       
       sim_params$sim_mean <- NULL
       sim_params$sim_variance <- NULL
       sim_params$sim_error <- NULL
       
-
       shinyjs::reset("independ_dist")
       shinyjs::reset("sim_var_name")
       
@@ -714,7 +717,6 @@ shinyServer(function(input, output, session) {
       col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
       sim_params$sim_mean <- sim_params$param_data[[col_id]]
       
-      
       ### Initialize variables for constructing conditional distribution
       sim_params$cond_dist_step = 2
       sim_params$param_data <- sim_params$sim_data # Used for calculating conditional mean / var
@@ -778,10 +780,8 @@ shinyServer(function(input, output, session) {
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")
   
-      
       shinyjs::hide("calc_variance")
       shinyjs::hide("loc_scale")
-
       
       shinyjs::show("calc_error")
       shinyjs::show("error_dist")
