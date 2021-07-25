@@ -53,7 +53,7 @@ sample_dist <-  function(n, params) {
 
 # Update Parameters ----
 
-update_sim_params <- function(sim_params, cond_dist_step, num_vars) {
+update_sim_params <- function(sim_params, cond_dist_step, num_vars, mean=NULL, log_variance=NULL, error=NULL) {
   sim_params$num_vars <- num_vars
   sim_params$cond_dist_step <- cond_dist_step
   sim_params$param_data <- sim_params$sim_data # Used for calculating conditional mean / var
@@ -66,9 +66,9 @@ update_sim_params <- function(sim_params, cond_dist_step, num_vars) {
                                      Arguments = character(0),
                                      Name = character(0))
   
-  sim_params$sim_mean <- NULL
-  sim_params$log_sim_variance <- NULL
-  sim_params$sim_error <- NULL
+  sim_params$sim_mean <- mean
+  sim_params$log_sim_variance <- log_variance
+  sim_params$sim_error <- error
   
   return(sim_params)
   

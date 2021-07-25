@@ -507,10 +507,10 @@ shinyServer(function(input, output, session) {
       # With this we can extract the appropiate column for the mean
       
       col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
-      sim_params$sim_mean <- sim_params$param_data[[col_id]]
+      sim_mean <- sim_params$param_data[[col_id]]
       
       ### Initialize variables for constructing conditional distribution
-      sim_params <- update_sim_params(sim_params, cond_dist_step = 2, sim_params$num_vars)
+      sim_params <- update_sim_params(sim_params, cond_dist_step = 2, sim_params$num_vars, mean=sim_mean)
      
       updateSelectInput(
          session,
@@ -536,10 +536,13 @@ shinyServer(function(input, output, session) {
       # With this we can extract the appropiate column for the mean
       
       col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
-      sim_params$log_sim_variance <- sim_params$param_data[[col_id]]
+      log_sim_variance <- sim_params$param_data[[col_id]]
 
       ### Initialize variables for constructing conditional distribution
-      sim_params <- update_sim_params(sim_params, cond_dist_step = 3, sim_params$num_vars)
+      sim_params <- update_sim_params(sim_params, cond_dist_step = 3,
+                                      sim_params$num_vars,
+                                      mean = sim_params$sim_mean,
+                                      log_variance = log_sim_variance)
       
       updateSelectInput(
          session,
@@ -570,6 +573,7 @@ shinyServer(function(input, output, session) {
    ## Sample noise from selected distribution
    observeEvent(input$calc_error, {
       n_total <- input$n_participants*input$decision_pts*input$n_days
+      
       sim_params$sim_error <- switch (
          tolower(input$error_dist),
          "gaussian" = rnorm(n_total,
