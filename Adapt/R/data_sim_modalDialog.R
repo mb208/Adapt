@@ -19,8 +19,6 @@ data_gen_modal <- modalDialog(
                                  value = 40),
                     actionButton("browser2", "browser")
                     )
-             # ,
-             # actionButton("end_design", "End Variable Creation")
              ),
            hr(),
            fluidRow(
@@ -95,7 +93,8 @@ data_gen_modal <- modalDialog(
                                         ),
                                         numericInput("power_val", "Exponent Value:", value = 1),
                                         textOutput("var_creation_warning"),
-                                        actionButton("apply_operation", "Apply Operations")
+                                        actionButton("apply_operation", "Apply Operations"),
+                                        tags$script("$('#apply_operation').prop('disabled', true);")
                                )
                                ,
                                tags$div(id = "error_calc",
@@ -127,7 +126,9 @@ data_gen_modal <- modalDialog(
                              )
                              ,
                              shinyjs::hidden(actionButton("calc_mean", "Generate Mean")),
-                             shinyjs::hidden(actionButton("calc_variance", "Generate Variance"))
+                             shinyjs::hidden(actionButton("calc_variance", "Generate Variance")),
+                             tags$script("$('#calc_mean').prop('disabled', true);"),
+                             tags$script("$('#calc_variance').prop('disabled', true);")
                              
                       )
                ) # End of loc_scale_column / closing of shinyjs hidden

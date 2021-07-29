@@ -1,6 +1,7 @@
 library(shiny)
 library(DT)
 library(stringr)
+library(reactable)
 
 source("R/data_sim_modalDialog.R")
 source("R/utils_ui.R")
@@ -200,22 +201,29 @@ shinyServer(function(input, output, session) {
       sim_params$num_vars = sim_params$num_vars  + 1
       
       ### Initialize variables for constructing conditional distribution
-      sim_params <- update_sim_params(sim_params, cond_dist_step =1, sim_params$num_vars)
+      sim_params <- update_sim_params(sim_params, cond_dist_step = 1, 
+                                      sim_params$num_vars, sim_data = sim_params$sim_data)
 
-      shinyjs::reset("independ_dist")
+      
+      updateRadioButtons(
+         session,
+         inputId = 'independ_dist',
+         label = "Are the new variable and previous variables\n independently distributed?",
+         choices = c("Yes", "No"),
+         selected = character(0)
+      )
+      
+      # shinyjs::reset("independ_dist")
       shinyjs::reset("sim_var_name")
+      shinyjs::hide("loc_scale_column")
+      shinyjs::hide("time_varying")
       
       ## Updates select input with current simulated data variables
       ## Allows user to build conditional distribution for a new variable 
       ## using these previously generated variables
       ## Only displayed if "independ_dist" == "No"
       
-      updateSelectInput(
-         session,
-         inputId = 'conditional_vars',
-         label = "Choose Variables",
-         names(sim_params$sim_data)
-      )
+      updateConditionalVars(session = session, names = names(sim_params$sim_data))
       
    })
    
@@ -227,142 +235,33 @@ shinyServer(function(input, output, session) {
    
    
    ### !! I belive all this observe stuff should be done in javascript
-   observe({
-      # When number of variables in greater then 1
-      # Give option to choose if new variable is dependent on previous
-      
-      if (sim_params$num_vars > 1) {
-         shinyjs::disable("n_participants")
-         shinyjs::disable("decision_pts")
-         shinyjs::disable("n_days")
-         shinyjs::show("independ_dist")
-         shinyjs::hide("data_dist")
-         shinyjs::hide("dist_params")
-      } else {
-         shinyjs::hide("loc_scale_column")
-         }
-      
-   })
    
-   # Enable / disable gen_var action button -----------------------
-   observe({
-      req(input$sim_var_name)
-      sim_var_name <- stringr::str_trim(input$sim_var_name) # Remove leading / trailing white space
-      cond_varname =  input$sim_var_name == "" |
-         stringr::str_detect(sim_var_name, "^\\d") |
-         stringr::str_detect(sim_var_name, "^_") |
-         stringr::str_detect(sim_var_name, "[[:space:]]") | 
-         stringr::str_detect(sim_var_name, "[^_[:^punct:]]") | 
-         stringr::str_detect(sim_var_name, "[A-Z]") | 
-         (sim_var_name %in% names(sim_params$sim_data))
-      
-      cond_ind = input$data_dist == ""
-      cond_dep = any(map_lgl(c("sim_mean","log_sim_variance", "sim_error"),
-                             ~ is.null(sim_params[[.]])))
-      
-      independ = input$independ_dist == "Yes"
-      if (input$independ_dist == "Yes") {
-         if (!cond_varname & !cond_ind) {
-            shinyjs::enable("gen_var")
-            
-         } else {
-            shinyjs::disable("gen_var")
-         }
-      } else {
-         if (!cond_varname & !cond_dep) {
-            shinyjs::enable("gen_var")
-            
-         } else {
-            shinyjs::disable("gen_var")
-         }
-      }
-   })
+   # Logic to (en/dis)able action buttons in modal dialog ----
+   
+   source(file.path("R", "utils_enableLogic_modalDialog.R"))
+   # file.path("R", "utils_enableLogic_modalDialog.R")
+   
+   toggle_genVar_btn(input, sim_params)
+   
+   toggle_apply_op_btn(input, sim_params)
+   
+   toggle_mean_variance_btn(input, sim_params)
+   
+   toggle_err_btn(input, sim_params)
    
    #### Dynamic Display of operation choices for mean/var specification #### 
+   source(file.path("R", "utils_visibilityLogic_modalDialog.R"))
    
-   observe({
-      req(input$independ_dist)
-      
-         if (input$independ_dist == "Yes") {
-            shinyjs::show("data_dist")
-            shinyjs::show("dist_params")
-            shinyjs::show("time_varying")
-            shinyjs::hide("loc_scale_column")
-            
-         } else {
-            
-            shinyjs::hide("data_dist")
-            shinyjs::hide("dist_params")
-            shinyjs::hide("time_varying")
-            shinyjs::show("loc_scale_column")
-
-         } 
- 
-         
-   })
+   visibility_init_simulation(sim_params)
    
-   # logic for showing equation panels
-   observe({
-      
-      #! hiding DT table prevents it from updating
-      if(sim_params$cond_dist_step==3) {
-         shinyjs::hide("cond_operations")
-         # shinyjs::hide("loc_scale")
-         shinyjs::show("error_calc")
-      } else if (any(sim_params$cond_dist_step == c(1,2))) {
-         shinyjs::hide("error_calc")
-         shinyjs::show("cond_operations")
-         # shinyjs::show("loc_scale")
-      }
-      
-      if (sim_params$cond_dist_step == 1) {
-         shinyjs::show("calc_mean")
-         shinyjs::hide("calc_variance")
-      } else if (sim_params$cond_dist_step == 2) {
-         shinyjs::hide("calc_mean")
-         shinyjs::show("calc_variance")
-      }
-   })
+   visibility_variabile_options(input)
    
-   observe({
-      req(input$independ_dist)
-      if (!is.null(input$conditional_vars)) {
-         if (input$conditional_vars[1] == "") {
-            shinyjs::hide("unary_operation")
-            shinyjs::hide("multi_operation")
-            shinyjs::hide("power_val")
-         } else if (length(input$conditional_vars) == 1) {
-            shinyjs::show("unary_operation")
-            shinyjs::hide("multi_operation")
-            # Need to specify because we don't want this to capture case where no variables are selected
-         } else {
-            shinyjs::hide("unary_operation")
-            shinyjs::show("multi_operation")
-         }
-      
-         if (input$unary_operation == "^") {
-            shinyjs::show("power_val")
-         } else {
-            shinyjs::hide("power_val")
-         } } else {
-            shinyjs::hide("unary_operation")
-            shinyjs::hide("multi_operation")
-            shinyjs::hide("power_val")
-         }
-      
-   })
+   visibility_location_scale_steps(sim_params)
    
-   observe({
-      req(input$multi_operation)
-      if (input$multi_operation == "weighted sum") {
-         shinyjs::show("weighted_sum_inputs")
-      } else {
-         shinyjs::hide("weighted_sum_inputs")
-      }
-      
-   })
+   visibility_operation_choices(input)
    
- 
+   visibility_weighted_sum(input)
+   
    #### Mean/Var/Error calculation reactivity ####
    
    conditional_vars <- reactive({
@@ -391,79 +290,73 @@ shinyServer(function(input, output, session) {
                                    value = 1)
          )
       )
-   })
-   
-   
+   }) 
+
    observeEvent(input$apply_operation, {
       current_data <- conditional_vars()
-      
+
       prefix = switch(sim_params$cond_dist_step, "1" = "mean", "2" = "var")
-      
+
       new_var_name <- paste(
-         paste0(prefix, "__", sep = ""), 
-         sim_params$var_cnt, 
+         paste0(prefix, "__", sep = ""),
+         sim_params$var_cnt,
          sep = "")
-      
+
       input_val = "NA"
       display_name <- paste("expression", sim_params$var_cnt, collapse = " ")
-      
+
       if (length(input$conditional_vars) == 1) {
-         
+
          operation_name = input$unary_operation
-         
+
          ## If they choose to take power of variable
          if (operation_name=="^") {
-            
+
             pow = input$power_val
             input_val = as.character(pow)
-            
+
             new_var <- unary_operator(operation_name,
-                                      current_data, 
+                                      current_data,
                                       pow)
-            
+
          } else {
-            
+
             new_var <- unary_operator(operation_name,
                                       current_data)
          }
-         
+
       } else if (length(input$conditional_vars) > 1) {
-         
+
          operation_name = input$multi_operation
          # Logic changes if they choose weighted sum
          if (input$multi_operation == "weighted sum") {
-            
+
             wghts <- sapply(input$conditional_vars, function(x){
                input[[paste('wgt_',x)]]})
-            
+
             input_val = paste0(wghts, collapse = ", ")
-            
-            new_var <- apply(current_data, 1, 
+
+            new_var <- apply(current_data, 1,
                              function(x) {
                                 sum(x*wghts)
                              }
-            ) 
-            
+            )
+
          } else {
-               new_var <- apply(current_data, 1, 
+               new_var <- apply(current_data, 1,
                                 function(x) {
                                    n_ary_operator(operation_name, x)
                                    }
                                 )
                }
       }
-      
+
       sim_params$var_choices[display_name] = new_var_name
       sim_params$param_data[new_var_name] = new_var
-      
-      updateSelectInput(
-         session,
-         inputId = 'conditional_vars',
-         label = "Choose Variables",
-         names(sim_params$var_choices)
-      )
-      
-     
+
+      updateConditionalVars(session=session, names = names(sim_params$var_choices))
+
+
       sim_params$expression_tbl <- sim_params$expression_tbl  %>%
          dplyr::bind_rows(
             tibble(
@@ -475,16 +368,17 @@ shinyServer(function(input, output, session) {
                Name = display_name
             )
          )
-      
-      
-      
+
+
+
       sim_params$var_cnt <- sim_params$var_cnt + 1
-      
+
 
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")
+      shinyjs::disable("apply_operation")
    })
-   
+
 
     output$loc_scale_tbl <- DT::renderDataTable({
        datatable( sim_params$expression_tbl,
@@ -510,18 +404,15 @@ shinyServer(function(input, output, session) {
       sim_mean <- sim_params$param_data[[col_id]]
       
       ### Initialize variables for constructing conditional distribution
-      sim_params <- update_sim_params(sim_params, cond_dist_step = 2, sim_params$num_vars, mean=sim_mean)
+      sim_params <- update_sim_params(sim_params, cond_dist_step = 2, 
+                                      sim_params$num_vars, sim_data = sim_params$sim_data, mean=sim_mean)
      
-      updateSelectInput(
-         session,
-         inputId = 'conditional_vars',
-         label = "Choose Variables",
-         names(sim_params$var_choices)
-      )
+      updateConditionalVars(session=session, names = names(sim_params$var_choices))
       
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")
       
+      shinyjs::toggleState("calc_mean")
       shinyjs::hide("calc_mean")
       shinyjs::show("calc_variance")
    })
@@ -541,19 +432,16 @@ shinyServer(function(input, output, session) {
       ### Initialize variables for constructing conditional distribution
       sim_params <- update_sim_params(sim_params, cond_dist_step = 3,
                                       sim_params$num_vars,
+                                      sim_data = sim_params$sim_data,
                                       mean = sim_params$sim_mean,
                                       log_variance = log_sim_variance)
       
-      updateSelectInput(
-         session,
-         inputId = 'conditional_vars',
-         label = "Choose Variables",
-         names(sim_params$var_choices)
-      )
-   
+      updateConditionalVars(session=session, names = names(sim_params$var_choices))
+      
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")
   
+      shinyjs::toggleState("calc_variance")
       shinyjs::hide("calc_variance")
    
       
@@ -564,10 +452,13 @@ shinyServer(function(input, output, session) {
 
    #### Conditional Error ####
    # Display required parameters for selected distribution
+    
     output$cond_err_dist <-  renderUI({
+       
        req(input$error_dist)
        err_dist_ui(tolower(input$error_dist))
-    })
+    
+       })
     
 
    ## Sample noise from selected distribution
@@ -623,6 +514,7 @@ shinyServer(function(input, output, session) {
       
       shinyjs::reset("independ_dist")
       shinyjs::reset("sim_var_name")
+      shinyjs::reset("data_choice")
       
       
       removeModal()
@@ -636,7 +528,8 @@ shinyServer(function(input, output, session) {
          showModal(data_gen_modal)
          
       }
-   }, ignoreInit = TRUE)
+   }, 
+   ignoreInit = TRUE)
   
    
    
@@ -775,6 +668,8 @@ shinyServer(function(input, output, session) {
      
    })
    
+   
+   # Reset environment ----
    observeEvent(input$reset, {
       
       prob_values$agg_cnt = 0
@@ -792,6 +687,9 @@ shinyServer(function(input, output, session) {
          session = session,
          inputId = 'calc_vars',
          choices = names(prob_values$variable_choices))
+      
+      shinyjs::reset("data_choice")
+      update_sim_params(sim_params, cond_dist_step = 0, num_vars = 1, sim_data = sim_params$sim_data)
  
    })
    

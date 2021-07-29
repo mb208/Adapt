@@ -12,6 +12,7 @@ library(shinydashboard)
 library(tidyverse)
 library(shinythemes)
 
+source("R/utils_ui.R")
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
@@ -102,8 +103,7 @@ shinyUI(fluidPage(
                                    )
                         )
                         ,
-                        br(),
-                        br(),
+                        set_html_breaks(2),
                         actionButton("get_prob",label = "Assign Treatment") 
                         # , 
                         # tableOutput("selected")

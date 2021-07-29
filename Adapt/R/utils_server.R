@@ -51,12 +51,13 @@ sample_dist <-  function(n, params) {
 }
 
 
-# Update Parameters ----
+# Update Simulate Parameters ----
 
-update_sim_params <- function(sim_params, cond_dist_step, num_vars, mean=NULL, log_variance=NULL, error=NULL) {
+update_sim_params <- function(sim_params, cond_dist_step, num_vars, sim_data, mean=NULL, log_variance=NULL, error=NULL) {
   sim_params$num_vars <- num_vars
   sim_params$cond_dist_step <- cond_dist_step
-  sim_params$param_data <- sim_params$sim_data # Used for calculating conditional mean / var
+  sim_params$sim_data <- sim_data
+  sim_params$param_data <- sim_data # Used for calculating conditional mean / var
   sim_params$var_cnt <- 1
   sim_params$var_choices <- names(sim_params$sim_data)
   names(sim_params$var_choices) <- sim_params$var_choices
@@ -96,4 +97,26 @@ data_agg <- list("sum" = sum,
 prob_maps <- list("expit" = expit,
                   "arctan" = arctan,
                   "tanh" = adj_tanh)
+
+
+
+exprToStr <- function(X, f, pow=NULL) {
+  if (f %in% c("exp", "ln")) {
+    return(str_c(f, "(", X ,")"))
+  } else if (f == "^") {
+    return(str_c(X,f,pow))
+  } else if (length(X) > 1) {
+    str_c(X, collapse = str_pad(f, 4, "both"))
+  }
+}
+
+
+# Upate UI functions ----
+updateConditionalVars <- function(session, names) {
+  updateSelectInput(session,
+                    inputId = 'conditional_vars',
+                    label = "Choose Variables",
+                    names)
+}
+
 
