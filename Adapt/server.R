@@ -198,11 +198,10 @@ shinyServer(function(input, output, session) {
          sim_params$sim_data[sim_var_name] <- new_var
       }
       
-      sim_params$num_vars = sim_params$num_vars  + 1
+      #sim_params$num_vars = sim_params$num_vars  + 1
       
       ### Initialize variables for constructing conditional distribution
-      sim_params <- update_sim_params(sim_params, cond_dist_step = 1, 
-                                      sim_params$num_vars, sim_data = sim_params$sim_data)
+      sim_params <- update_sim_params(sim_params, cond_dist_step = 1, sim_params$num_vars + 1, sim_data = sim_params$sim_data)
 
       
       updateRadioButtons(
@@ -227,9 +226,11 @@ shinyServer(function(input, output, session) {
       
    })
    
-   output$sim_data <- renderTable({
+   output$sim_data <- DT::renderDataTable({
       req(sim_params$sim_data)
-      head(sim_params$sim_data)
+      datatable(sim_params$sim_data,
+                    options = list(dom="t"),
+                    rownames = F)
       
       })
    
