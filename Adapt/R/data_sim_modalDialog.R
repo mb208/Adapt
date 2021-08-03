@@ -1,4 +1,5 @@
 library(DT)
+library(reactable)
 
 source("R/utils_ui.R")
 
@@ -27,7 +28,7 @@ data_gen_modal <- modalDialog(
       ),
       column(1,
              offset = 2,
-             actionButton("browser2", "browser")
+             # actionButton("browser2", "browser")
              )
     ),
     hr(),
@@ -35,8 +36,10 @@ data_gen_modal <- modalDialog(
                 tabPanel("Data Creation",
                          source(file.path("R", "ui_data_creation_tab.R"),  local = TRUE)$value),
                 tabPanel("View Data",
-                         DT::dataTableOutput("sim_data")),
-                tabPanel("Data Summary")),
+                         # Button Download Simulated Data,
+                         DT::dataTableOutput("sim_data"),
+                         downloadButton("downloadSimData", "Download Data")),
+                tabPanel("Data Summary", reactableOutput("data_dict"))),
   )
   ,
   title = "Simulate Dataset",

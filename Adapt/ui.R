@@ -36,8 +36,8 @@ shinyUI(fluidPage(
     ),
     # Application title
     titlePanel("Randomization Design"),
-    actionButton("browser", "browser"),
-    tags$script("$('#browser').hide();"),
+    # actionButton("browser", "browser"),
+    # tags$script("$('#browser').hide();"),
     column(2,
         tags$div(
             radioButtons("data_choice", 

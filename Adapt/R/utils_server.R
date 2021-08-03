@@ -75,6 +75,20 @@ update_sim_params <- function(sim_params, cond_dist_step, num_vars, sim_data, me
   
 }
 
+
+# Check variable name meets requirements ----
+validate_variable_name <- function(name, df_names) {
+  condition =  name == "" | 
+    stringr::str_detect(name, "^\\d") |
+    stringr::str_detect(name, "^_") |
+    stringr::str_detect(name, "[[:space:]]") |
+    stringr::str_detect(name, "[^_[:^punct:]]") |
+    stringr::str_detect(name, "[A-Z]") |
+    (name %in% names(df_names))
+  
+  return(condition)
+}
+
 #### List mapping input arguments to functions ####
 
 expit <- function(x) {
@@ -99,18 +113,6 @@ prob_maps <- list("expit" = expit,
                   "tanh" = adj_tanh)
 
 
-
-exprToStr <- function(X, f, pow=NULL) {
-  if (f %in% c("exp", "ln")) {
-    return(str_c(f, "(", X ,")"))
-  } else if (f == "^") {
-    return(str_c(X,f,pow))
-  } else if (length(X) > 1) {
-    str_c(X, collapse = str_pad(f, 4, "both"))
-  }
-}
-
-
 # Upate UI functions ----
 updateConditionalVars <- function(session, names) {
   updateSelectInput(session,
@@ -119,4 +121,15 @@ updateConditionalVars <- function(session, names) {
                     names)
 }
 
+
+# Reset reactive values ----
+reset_summary_tables <- function(summary_tables) {
+  
+  summary_tables$mean_tables = list()
+  summary_tables$variance_tables = list()
+  summary_tables$error_dist = list()
+  summary_tables$data_dict = tibble(Variable = character(0), Independent = character(0))
+  summary_tables$param_dists = list()
+  
+}
 

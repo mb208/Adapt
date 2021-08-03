@@ -23,13 +23,13 @@ shinyServer(function(input, output, session) {
    )
 
    # For debugging
-   observeEvent(input$browser,{
-      browser()
-   })
-
-   observeEvent(input$browser2,{
-      browser()
-   })
+   # observeEvent(input$browser,{
+   #    browser()
+   # })
+   # 
+   # observeEvent(input$browser2,{
+   #    browser()
+   # })
 
    upload_data  <- reactive({
       req(input$file_info$name)
@@ -93,11 +93,25 @@ shinyServer(function(input, output, session) {
       log_sim_variance = NULL,
       sim_error = NULL
    )
+ 
+ summary_tables <- reactiveValues(
+    
+    mean_tables = list(),
+    variance_tables = list(),
+    error_dist = list(),
+    data_dict = tibble(Variable = character(0), Independent = character(0)),
+    param_dists = list()
+    
+ )
+ 
+ sim_var_name <- reactive({
+   stringr::str_trim(input$sim_var_name) 
+ })
    
    # Display name of new variable
    output$var_title <- renderUI({
       req(input$sim_var_name)
-      sim_var_name <- stringr::str_trim(input$sim_var_name) # Remove leading / trailing white space
+      sim_var_name <- sim_var_name() # Remove leading / trailing white space
       validate(
          need(!stringr::str_detect(sim_var_name, "^\\d"), "Name cannot start with digit."),
          need(!stringr::str_detect(sim_var_name, "^_"), "Name cannot start with '_'."),
@@ -139,6 +153,31 @@ shinyServer(function(input, output, session) {
       
       ## If new variable is independent (or first variable) then draw samples
       if (input$independ_dist == "Yes" || sim_params$num_vars == 1) {
+         
+         # Store tibble 
+         dist_table <-  switch(
+            input$data_dist,
+            "Gaussian"  = tibble(
+               Distribution = input$data_dist,
+               mean = input$guass_mu,
+               sd = input$guass_sd
+            ),
+            "Bernoulli" =  tibble(Distribution = input$data_dist, p = input$bern_p),
+            
+            "Binomial"  = tibble(
+               Distribution = input$data_dist,
+               size = input$bin_n,
+               p = input$bin_p
+            ),
+            
+            "Gamma"     = tibble(
+               Distribution = input$data_dist,
+               shape = input$gamma_s,
+               rate = input$gamma_r
+            )
+         )
+         summary_tables$param_dists[[sim_var_name()]] <- dist_table
+         
          if (input$time_varying=="Yes") {
             new_var <- switch(
                input$data_dist,
@@ -156,6 +195,7 @@ shinyServer(function(input, output, session) {
                                     shape = input$gamma_s,
                                     rate = input$gamma_r)
             )
+            
          } else {
             new_var <- switch (
                input$data_dist,
@@ -188,14 +228,14 @@ shinyServer(function(input, output, session) {
       
       if (sim_params$num_vars == 1) {
          
-         sim_var_name = stringr::str_trim(input$sim_var_name)
+         # sim_var_name = stringr::str_trim(input$sim_var_name)
          sim_params$sim_data <- data.frame(new_var)
-         colnames(sim_params$sim_data) <- sim_var_name
+         colnames(sim_params$sim_data) <- sim_var_name()
          
       } else {
          
-         sim_var_name = stringr::str_trim(input$sim_var_name)
-         sim_params$sim_data[sim_var_name] <- new_var
+         #sim_var_name = stringr::str_trim(input$sim_var_name)
+         sim_params$sim_data[sim_var_name()] <- new_var
       }
       
       #sim_params$num_vars = sim_params$num_vars  + 1
@@ -224,6 +264,11 @@ shinyServer(function(input, output, session) {
       
       updateConditionalVars(session = session, names = names(sim_params$sim_data))
       
+      summary_tables$data_dict <- summary_tables$data_dict %>% 
+         dplyr::bind_rows(
+            tibble(Variable = sim_var_name(), Independent = input$independ_dist)
+         )
+      
    })
    
    output$sim_data <- DT::renderDataTable({
@@ -235,13 +280,70 @@ shinyServer(function(input, output, session) {
       })
    
    
+   # source(file.path("R", "sim_data_dict_reactableTable.R"), local = TRUE)$value
+   
+   output$data_dict <- renderReactable({
+      stagging <- tibble(Parameters = c("mean", "variance", "error"))
+      reactable(summary_tables$data_dict,
+                searchable = F,
+                showSortable = F
+                ,
+
+                details = function(index) {
+                  if (summary_tables$data_dict$Independent[index] == "No") {
+                     reactable(
+                        stagging,
+                        details = function(index_2) {
+                           if (stagging$Parameters[index_2] == "mean") {
+                              reactable(
+                                 summary_tables$mean_tables[[summary_tables$data_dict$Variable[[index]]]],
+                                 rowStyle = JS(
+                                 "function(rowInfo) {
+                                 if (rowInfo.row['selected'] == true) {
+                                 return { background: 'rgba(0, 0, 0, 0.05)' }
+                                 }
+                                 }" ),
+                                 fullWidth = FALSE
+                              )
+                           } else if (stagging$Parameters[index_2] == "variance") {
+                              reactable(summary_tables$variance_tables[[summary_tables$data_dict$Variable[[index]]]], 
+                                        rowStyle = JS(
+                                           "function(rowInfo) {
+                                 if (rowInfo.row['selected'] == true) {
+                                 return { background: 'rgba(0, 0, 0, 0.05)' }
+                                 }
+                                 }"),
+                                        fullWidth = FALSE)
+                           } else if (stagging$Parameters[index_2] == "error") {
+                              reactable(summary_tables$error_dist[[summary_tables$data_dict$Variable[[index]]]], fullWidth = FALSE)
+                           }
+                        }
+                     )
+                  } else {
+                     reactable(summary_tables$param_dists[[index]], fullWidth = FALSE)
+                  }
+
+                }
+      )
+   })
+
+   # Downloadable csv of simulated dataset ----
+   output$downloadSimData <- downloadHandler(
+      filename = function() {
+         "simulated_data.csv"
+      },
+      content = function(file) {
+         write.csv(sim_params$sim_data, file, row.names = FALSE)
+      }
+   )
+   
+   
    ### !! I belive all this observe stuff should be done in javascript
    
    # Logic to (en/dis)able action buttons in modal dialog ----
    
    source(file.path("R", "utils_enableLogic_modalDialog.R"))
-   # file.path("R", "utils_enableLogic_modalDialog.R")
-   
+
    toggle_genVar_btn(input, sim_params)
    
    toggle_apply_op_btn(input, sim_params)
@@ -404,6 +506,17 @@ shinyServer(function(input, output, session) {
       col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
       sim_mean <- sim_params$param_data[[col_id]]
       
+      # Store expression table for data dictionary
+      sim_var_name <- sim_var_name()
+      mean_expr_list <-  list()
+      mean_expr_list[[sim_var_name]] <- sim_params$expression_tbl %>%
+         dplyr::select(-Select) %>% 
+         mutate(selected =  row_number() == row_id)
+      
+      summary_tables$mean_tables <- append(summary_tables$mean_tables,
+                                           mean_expr_list)
+
+
       ### Initialize variables for constructing conditional distribution
       sim_params <- update_sim_params(sim_params, cond_dist_step = 2, 
                                       sim_params$num_vars, sim_data = sim_params$sim_data, mean=sim_mean)
@@ -430,6 +543,20 @@ shinyServer(function(input, output, session) {
       col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
       log_sim_variance <- sim_params$param_data[[col_id]]
 
+      
+      # Store expression table for data dictionary
+      sim_var_name <- sim_var_name()
+      variance_expr_list <-  list()
+      variance_expr_list[[sim_var_name]] <- sim_params$expression_tbl %>%
+         dplyr::select(-Select)  %>% 
+         mutate(selected = row_number() == row_id)
+      
+      summary_tables$variance_tables <-
+         append(
+            summary_tables$variance_tables,
+            variance_expr_list
+         )
+      
       ### Initialize variables for constructing conditional distribution
       sim_params <- update_sim_params(sim_params, cond_dist_step = 3,
                                       sim_params$num_vars,
@@ -476,7 +603,18 @@ shinyServer(function(input, output, session) {
                                               input$dexp_err_scale)
       )
       
-     
+      sim_var_name <- sim_var_name()
+      err_list <- list()
+      err_list[[sim_var_name]] <-  switch(
+         tolower(input$error_dist),
+         "gaussian" = tibble(Distribution = input$error_dist, mean = 0, sd = input$guass_err_sd),
+         "double exponential" = tibble(Distribution = input$error_dist, location = 0, scale = input$dexp_err_scale)
+      ) 
+      
+      summary_tables$error_dist <- append(summary_tables$error_dist,
+                                          err_list)
+      
+      
       shinyjs::hide("cond_err_dist")
       shinyjs::hide("error_dist")
       shinyjs::hide("calc_error")
@@ -677,20 +815,27 @@ shinyServer(function(input, output, session) {
       prob_values$probs =  numeric(length = nrow(prob_values$data))
       
       # Remove newly generated variables from data set
-      prob_values$data <- prob_values$data %>% 
-         dplyr::select(-prob_values$generated_variables)
       
-      prob_values$variable_choices <- names(prob_values$data)
-      names(prob_values$variable_choices) <- prob_values$variable_choices
+      # ! old reset only removed newly generated variables / new reset removes entire data set
+      # prob_values$data <- prob_values$data %>% 
+      #    dplyr::select(-prob_values$generated_variables)
+      prob_values$data <- NULL
+      
+      prob_values$variable_choices <- NULL
+      # names(prob_values$variable_choices) <- prob_values$variable_choices
       prob_values$generated_variables <-  c()
+      
+      update_sim_params(sim_params, cond_dist_step = 0, num_vars = 1, sim_data = NULL)
+      
+      summary_tables <-  reset_summary_tables(summary_tables)
       
       updateSelectInput(
          session = session,
          inputId = 'calc_vars',
-         choices = names(prob_values$variable_choices))
+         choices = "")
       
       shinyjs::reset("data_choice")
-      update_sim_params(sim_params, cond_dist_step = 0, num_vars = 1, sim_data = sim_params$sim_data)
+      
  
    })
    

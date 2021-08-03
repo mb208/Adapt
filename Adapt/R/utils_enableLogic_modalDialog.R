@@ -1,18 +1,19 @@
 # Enable / disable gen_var action button -----------------------
-
+source("R/utils_server.R")
 toggle_genVar_btn <- function(input, sim_params) {
   observe({
     req(input$sim_var_name)
     req(input$independ_dist)
-    sim_var_name <-
-      stringr::str_trim(input$sim_var_name) # Remove leading / trailing white space
-    cond_varname =  input$sim_var_name == "" |
-      stringr::str_detect(sim_var_name, "^\\d") |
-      stringr::str_detect(sim_var_name, "^_") |
-      stringr::str_detect(sim_var_name, "[[:space:]]") |
-      stringr::str_detect(sim_var_name, "[^_[:^punct:]]") |
-      stringr::str_detect(sim_var_name, "[A-Z]") |
-      (sim_var_name %in% names(sim_params$sim_data))
+    sim_var_name <- stringr::str_trim(input$sim_var_name) # Remove leading / trailing white space
+      # cond_varname =  input$sim_var_name == "" |
+      # stringr::str_detect(sim_var_name, "^\\d") |
+      # stringr::str_detect(sim_var_name, "^_") |
+      # stringr::str_detect(sim_var_name, "[[:space:]]") |
+      # stringr::str_detect(sim_var_name, "[^_[:^punct:]]") |
+      # stringr::str_detect(sim_var_name, "[A-Z]") |
+      # (sim_var_name %in% names(sim_params$sim_data))
+    
+    cond_varname <- validate_variable_name(sim_var_name, names(sim_params$sim_data))
     
     cond_ind = input$data_dist == ""
     cond_dep = any(map_lgl(
