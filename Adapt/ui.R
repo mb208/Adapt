@@ -14,6 +14,8 @@ library(shinythemes)
 
 source("R/utils_ui.R")
 
+
+
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
     shinyjs::useShinyjs(),
@@ -30,24 +32,35 @@ shinyUI(fluidPage(
                         .modal-body { 
                         min-height:700px;
                         }
-                        
-                        
-                      '))
+                      ')),
+        includeCSS("www/accordion.css"), 
+        includeCSS("www/accordion.js"), 
+        tags$script("MathJax = {
+                      tex: {
+                        inlineMath: [['$', '$']]
+                      },
+                      svg: {
+                        fontCache: 'global'
+                      }
+                    };"), 
+        tags$script(type="text/javascript", id="MathJax-script",
+                    "async src"="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"),
+        tags$script(type="text/javascript", src = "www/accordion.js")
     ),
     # Application title
     titlePanel("Randomization Design"),
-    # actionButton("browser", "browser"),
-    # tags$script("$('#browser').hide();"),
+    actionButton("browser", "browser"),
+    tags$script("$('#browser').hide();"),
     column(2,
         tags$div(
-            radioButtons("data_choice", 
-                        h3(strong("Choose data source:")),
-                        choices = c("Upload File",
-                                    "Simulate")),
-            conditionalPanel("input.data_choice === 'Upload File'",
-                             fileInput("file_info", 
-                                       "Upload File",
-                                       accept = ".csv")),
+            h3(strong("Data Source")),
+            h4("Generate data source by uploading an an existing file from your computer or simulating a data set from scratch"),
+            actionButton("upload_file", "Upload Data"),
+            actionButton("data_simulation", "Simulate"),
+            br(),
+         shinyjs::hidden(fileInput("file_info", 
+                   "Upload File",
+                   accept = ".csv")),
             h4('Choose Variables'), 
             selectInput('calc_vars', 
                     label = "",

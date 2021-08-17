@@ -133,3 +133,18 @@ reset_summary_tables <- function(summary_tables) {
   
 }
 
+
+# Update accordion ----
+
+insert_accordion <- function(selector, where, acc_id, label, item){
+  insertUI(
+    selector,
+    where = where,
+    immediate = TRUE,
+    ui = tags$div(accordion_item(
+      id = acc_id,
+      label = h4(label),
+      item
+    ))
+  )
+}

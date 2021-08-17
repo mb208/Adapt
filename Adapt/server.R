@@ -1,11 +1,15 @@
 library(shiny)
+library(shinyjs)
 library(DT)
 library(stringr)
 library(reactable)
+library(shinydashboardPlus)
+
 
 source("R/data_sim_modalDialog.R")
 source("R/utils_ui.R")
 source("R/utils_server.R")
+source("R/utils_latex_render.R")
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
@@ -23,14 +27,20 @@ shinyServer(function(input, output, session) {
    )
 
    # For debugging
-   # observeEvent(input$browser,{
-   #    browser()
-   # })
-   # 
-   # observeEvent(input$browser2,{
-   #    browser()
-   # })
+   observeEvent(input$browser,{
+      browser()
+   })
 
+   observeEvent(input$browser2,{
+      browser()
+   })
+   
+   
+   observeEvent(input$upload_file, {
+      shinyjs::toggle("file_info")
+      
+   })
+   
    upload_data  <- reactive({
       req(input$file_info$name)
      
@@ -104,6 +114,14 @@ shinyServer(function(input, output, session) {
     
  )
  
+ expr_params <- reactiveValues(
+    var_names = c(),
+    expr_list = c(), # latex using for data dictionary tab
+    mean_expr = NULL,
+    variance_expr  = NULL,
+    error_expr  = NULL
+ )
+ 
  sim_var_name <- reactive({
    stringr::str_trim(input$sim_var_name) 
  })
@@ -143,8 +161,10 @@ shinyServer(function(input, output, session) {
       
    })
    
-   #### ObserveEvent: Generating new variable for simulated data set ####
+   #(gen_var) Generating new variable for simulated data set ----
    observeEvent(input$gen_var, {
+      
+      
       n_participants <- input$n_participants
       decision_pts <- input$decision_pts
       n_days <- input$n_days
@@ -177,6 +197,34 @@ shinyServer(function(input, output, session) {
             )
          )
          summary_tables$param_dists[[sim_var_name()]] <- dist_table
+         
+         expr_str <- switch(input$data_dist,
+                       "Gaussian"  = guass_str(mean = input$guass_mu, sd = input$guass_sd),
+                       "Bernoulli" = bern_str(p = input$bern_p),
+                       "Binomial" =  binomial_str(size = input$bin_n, p = input$bin_p),
+                       "Gamma"     = gamma_str(shape = input$gamma_s, rate = input$gamma_r)
+                       )
+         acc_id = str_c("accordion-", sim_params$num_vars, collapse = "")
+         
+         insert_accordion("#variable_summary", where = "beforeEnd", acc_id = acc_id,
+                          label = h4(sim_var_name()),  tags$h5(expr_str))
+         
+         runjs(run_accordion_js(acc_id))
+         # 
+         # runjs(str_interp(
+         #    "
+         #      $(document).ready(function() {
+         #      $('#${acc_id}').on('click',  function(e) {
+         #      e.preventDefault();
+         #      $(this).next('.panel').toggle();
+         # 
+         #      }) ;
+         #    })
+         #         "
+         # )
+         #       )
+
+         
          
          if (input$time_varying=="Yes") {
             new_var <- switch(
@@ -221,10 +269,38 @@ shinyServer(function(input, output, session) {
          }
          
       } else {
+         
          sd <- sqrt(exp(sim_params$log_sim_variance))
          
          new_var <- sim_params$sim_mean + sd*sim_params$sim_error
+         
+         acc_id = str_c("accordion-", sim_params$num_vars)
+         
+         insert_accordion("#variable_summary", where = "beforeEnd", acc_id = acc_id,
+                          label = h4(sim_var_name()), item = "")
+         
+         
+         
+         ids <- c("mean", "variance", "error")
+         
+         acc_items
+         for (id in ids ) {
+            expr_str <- expr_params[[str_c(id, "_expr")]]
+            tag_id <- str_c(sim_var_name(), "-", id)
+            parent_id <- str_c("#", acc_id)
+               
+            insert_accordion(parent_id, where = "beforeEnd", acc_id = tag_id,
+                             label = h4(id),  tags$h5(expr_str))
+            
+            runjs(run_accordion_js(tag_id))
+      
+         }
+         
+         
+         runjs(run_accordion_js(acc_id))
+         
       }
+      
       
       if (sim_params$num_vars == 1) {
          
@@ -238,8 +314,8 @@ shinyServer(function(input, output, session) {
          sim_params$sim_data[sim_var_name()] <- new_var
       }
       
-      #sim_params$num_vars = sim_params$num_vars  + 1
-      
+      expr_params$var_names[sim_var_name()] <- sim_var_name()
+
       ### Initialize variables for constructing conditional distribution
       sim_params <- update_sim_params(sim_params, cond_dist_step = 1, sim_params$num_vars + 1, sim_data = sim_params$sim_data)
 
@@ -252,7 +328,8 @@ shinyServer(function(input, output, session) {
          selected = character(0)
       )
       
-      # shinyjs::reset("independ_dist")
+      
+     
       shinyjs::reset("sim_var_name")
       shinyjs::hide("loc_scale_column")
       shinyjs::hide("time_varying")
@@ -288,7 +365,6 @@ shinyServer(function(input, output, session) {
                 searchable = F,
                 showSortable = F
                 ,
-
                 details = function(index) {
                   if (summary_tables$data_dict$Independent[index] == "No") {
                      reactable(
@@ -394,7 +470,7 @@ shinyServer(function(input, output, session) {
          )
       )
    }) 
-
+# apply_operation ----
    observeEvent(input$apply_operation, {
       current_data <- conditional_vars()
 
@@ -404,7 +480,9 @@ shinyServer(function(input, output, session) {
          paste0(prefix, "__", sep = ""),
          sim_params$var_cnt,
          sep = "")
-
+      
+      weights <- NULL
+      pow <- NULL
       input_val = "NA"
       display_name <- paste("expression", sim_params$var_cnt, collapse = " ")
 
@@ -434,14 +512,14 @@ shinyServer(function(input, output, session) {
          # Logic changes if they choose weighted sum
          if (input$multi_operation == "weighted sum") {
 
-            wghts <- sapply(input$conditional_vars, function(x){
+            weights <- sapply(input$conditional_vars, function(x){
                input[[paste('wgt_',x)]]})
-
-            input_val = paste0(wghts, collapse = ", ")
+            
+            input_val = paste0(weights, collapse = ", ")
 
             new_var <- apply(current_data, 1,
                              function(x) {
-                                sum(x*wghts)
+                                sum(x*weights)
                              }
             )
 
@@ -456,6 +534,13 @@ shinyServer(function(input, output, session) {
 
       sim_params$var_choices[display_name] = new_var_name
       sim_params$param_data[new_var_name] = new_var
+      
+      # Generate expression for data dict
+      expr_vars <- expr_params$var_names[input$conditional_vars]
+      expr <- f_to_str(operation_name, X = expr_vars, pow = pow, weights = weights)
+      expr_params$var_names[display_name] <- expr
+      expr_params$expr_list <- c(expr_params$expr_list, expr)
+      
 
       updateConditionalVars(session=session, names = names(sim_params$var_choices))
 
@@ -471,8 +556,9 @@ shinyServer(function(input, output, session) {
                Name = display_name
             )
          )
-
-
+      
+      # Need to think about how to get previous text expression involved 
+      # sim_params$tex_expr <- expr_to_tex()
 
       sim_params$var_cnt <- sim_params$var_cnt + 1
 
@@ -494,7 +580,7 @@ shinyServer(function(input, output, session) {
     })
    
    
-   #### Conditional Mean ####
+   # Conditional Mean ----
    ## Store variable with associated expression as mean
    observeEvent(input$calc_mean, {
       row_id <- as.numeric(input$expr_row) ## set in javascript code
@@ -511,8 +597,8 @@ shinyServer(function(input, output, session) {
       mean_expr_list <-  list()
       mean_expr_list[[sim_var_name]] <- sim_params$expression_tbl %>%
          dplyr::select(-Select) %>% 
-         mutate(selected =  row_number() == row_id)
-      
+         mutate(selected =  row_number() == row_id
+                )
       summary_tables$mean_tables <- append(summary_tables$mean_tables,
                                            mean_expr_list)
 
@@ -522,6 +608,9 @@ shinyServer(function(input, output, session) {
                                       sim_params$num_vars, sim_data = sim_params$sim_data, mean=sim_mean)
      
       updateConditionalVars(session=session, names = names(sim_params$var_choices))
+      
+      # get mean expr for data dict
+      expr_params$mean_expr <- expr_params$expr_list[row_id] %>% unname()
       
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")
@@ -565,6 +654,9 @@ shinyServer(function(input, output, session) {
                                       log_variance = log_sim_variance)
       
       updateConditionalVars(session=session, names = names(sim_params$var_choices))
+      
+      # get var expr for data dict
+      expr_params$variance_expr <- expr_params$expr_list[row_id] %>% unname()
       
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")
@@ -615,6 +707,12 @@ shinyServer(function(input, output, session) {
                                           err_list)
       
       
+      # get var expr for data dict
+      expr_params$error_expr <- switch(tolower(input$error_dist),
+                                     "gaussian"  = guass_str(mean = 0, sd = input$guass_err_sd),
+                                     "double exponential" = laplace_str(location = 0, scale = input$dexp_err_scale)
+      )
+      
       shinyjs::hide("cond_err_dist")
       shinyjs::hide("error_dist")
       shinyjs::hide("calc_error")
@@ -661,12 +759,10 @@ shinyServer(function(input, output, session) {
    })
    
    ## Open modal dialog to simulate data ##
-   observeEvent(input$data_choice, {
-      if (input$data_choice == "Simulate") {
+   observeEvent(input$data_simulation, {
          
-         showModal(data_gen_modal)
-         
-      }
+      showModal(data_gen_modal)
+      
    }, 
    ignoreInit = TRUE)
   
@@ -766,7 +862,7 @@ shinyServer(function(input, output, session) {
                             tags$td(align = "center", new_var_disp)
                )
       )
-      
+     
       # Reset select inputs 
       updateSelectInput(
          session = session,

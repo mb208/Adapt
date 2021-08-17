@@ -60,3 +60,93 @@ create_btn <- function(x) {
 set_html_breaks <- function(n) {
   HTML(strrep(br(),n))
 }
+
+wght_sum_expr <- function(weights, names) {
+  
+  # weights <- case_when(weights == -1 ~ "-",
+  #                      weights == 1 ~ "" ,
+  #                      TRUE ~ as.character(weights))
+  
+  expr <-  paste0(paste0(weights, '*', names), collapse = " + ")
+  expr <- str_replace(expr, "\\+\\s-", "- ")
+  return(str_glue("({expr})"))
+}
+
+
+get_expr_mult <- function(f, X, weights=NULL) {
+  
+  switch(f,
+         "multiply" = paste0(X, collapse = "*"),
+         "divide"   = paste0(X, collapse = "/"),
+         "weighted sum" = wght_sum_expr(weights, X))
+  
+}
+
+get_expr_unary <- function(f, X, pow=NULL) {
+  
+  if (f == "^") {
+    str_c(X, "^", pow)
+  } else {
+    str_c(f,"(", X, ")")
+  }
+}
+
+
+f_to_str <- function(f, X, pow=NULL, weights=NULL){
+  
+  if (length(X) == 1) {
+    str_replace(str_replace(get_expr_unary(f, X, pow), "\\(\\(", "\\("),
+                "\\)\\)", "\\)")
+    
+  } else if (length(X) > 1) {
+    get_expr_mult(f, X, weights)
+  }
+}
+
+
+laplace_str <- function(location, scale){
+  str_interp("Laplace(${location},  ${scale})")
+}
+
+guass_str <- function(mean, sd) {
+  var <- sd**2
+  str_interp("Normal(${mean}, ${var})")
+}
+
+bern_str <- function(p) {
+  str_interp("Bernoulli(p = ${p})")
+}
+
+binomial_str <- function(size, p) {
+  str_interp("Binomial(${size}, ${p})")
+}
+
+gamma_str <- function(rate, shape) {
+  str_interp("Gamma(${rate}, ${shape})")
+}
+
+
+
+
+
+# Generate accordion list element ---
+
+accordion_item <- function(id, label, ...) {
+  tagList(tags$div(id = id, class="accordion", label),
+          tags$div(class = "panel", ...))
+}
+
+# Template to apply JS to new accordion item
+run_accordion_js <- function(acc_id) {
+  return(str_interp(
+    "
+              $(document).ready(function() {
+              $('#${acc_id}').on('click',  function(e) {
+              e.preventDefault();
+              $(this).next('.panel').toggle();
+                
+              }) ;
+            })
+                 "  
+  ) )
+}
