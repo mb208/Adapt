@@ -50,7 +50,7 @@ data_gen_modal <- modalDialog(
                 tabPanel(
                   "View Data",
                   # Button Download Simulated Data,
-                  DT::dataTableOutput("sim_data"),
+                  withMathJax(DT::dataTableOutput("sim_data")),
                   downloadButton("downloadSimData", "Download Data")
                 ),
                 tabPanel("Data Summary", reactableOutput("data_dict")),

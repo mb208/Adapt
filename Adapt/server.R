@@ -94,9 +94,8 @@ shinyServer(function(input, output, session) {
       
       expression_tbl = tibble(
          Select = character(0),
-         Variables = character(0),
          Expression = character(0),
-         Arguments = character(0),
+         # Arguments = character(0),
          Name = character(0)
       ),
       sim_mean = NULL,
@@ -210,21 +209,7 @@ shinyServer(function(input, output, session) {
                           label = h4(sim_var_name()),  tags$h5(expr_str))
          
          runjs(run_accordion_js(acc_id))
-         # 
-         # runjs(str_interp(
-         #    "
-         #      $(document).ready(function() {
-         #      $('#${acc_id}').on('click',  function(e) {
-         #      e.preventDefault();
-         #      $(this).next('.panel').toggle();
-         # 
-         #      }) ;
-         #    })
-         #         "
-         # )
-         #       )
-
-         
+     
          
          if (input$time_varying=="Yes") {
             new_var <- switch(
@@ -273,31 +258,27 @@ shinyServer(function(input, output, session) {
          sd <- sqrt(exp(sim_params$log_sim_variance))
          
          new_var <- sim_params$sim_mean + sd*sim_params$sim_error
-         
+      
          acc_id = str_c("accordion-", sim_params$num_vars)
-         
-         insert_accordion("#variable_summary", where = "beforeEnd", acc_id = acc_id,
-                          label = h4(sim_var_name()), item = "")
-         
-         
-         
          ids <- c("mean", "variance", "error")
          
-         acc_items
-         for (id in ids ) {
-            expr_str <- expr_params[[str_c(id, "_expr")]]
-            tag_id <- str_c(sim_var_name(), "-", id)
-            parent_id <- str_c("#", acc_id)
-               
-            insert_accordion(parent_id, where = "beforeEnd", acc_id = tag_id,
-                             label = h4(id),  tags$h5(expr_str))
+         acc_item <- map(
+            ids, ~ accordion_item(id = str_c(sim_var_name(), "-", .),
+                                  label = .,
+                                  expr_params[[str_c(., "_expr")]])
+            ) %>% 
+            tagList()
             
-            runjs(run_accordion_js(tag_id))
-      
-         }
          
+         insert_accordion("#variable_summary", where = "beforeEnd", 
+                          acc_id = acc_id,
+                          label = h4(sim_var_name()), item = acc_item)
          
          runjs(run_accordion_js(acc_id))
+         
+         for (id in ids ) {
+            runjs(run_accordion_js(str_c(sim_var_name(), "-", id)))
+         }
          
       }
       
@@ -548,11 +529,10 @@ shinyServer(function(input, output, session) {
       sim_params$expression_tbl <- sim_params$expression_tbl  %>%
          dplyr::bind_rows(
             tibble(
-               Select = create_btn(sim_params$var_cnt),
-               Variables = paste0(input$conditional_vars,
-                                  collapse = ", "),
-               Expression = operation_name,
-               Arguments = input_val,
+               Select = create_checkbox(sim_params$var_cnt),
+               # Variables = paste0(input$conditional_vars,
+               #                    collapse = ", "),
+               Expression = expr,
                Name = display_name
             )
          )
@@ -612,6 +592,9 @@ shinyServer(function(input, output, session) {
       # get mean expr for data dict
       expr_params$mean_expr <- expr_params$expr_list[row_id] %>% unname()
       
+      expr_params <- reset_expr_params(expr_params, 
+                                       var_names = sim_params$var_choices)
+      
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")
       
@@ -657,6 +640,9 @@ shinyServer(function(input, output, session) {
       
       # get var expr for data dict
       expr_params$variance_expr <- expr_params$expr_list[row_id] %>% unname()
+      
+      expr_params <- reset_expr_params(expr_params, 
+                                       var_names = sim_params$var_choices)
       
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")

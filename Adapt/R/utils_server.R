@@ -62,9 +62,9 @@ update_sim_params <- function(sim_params, cond_dist_step, num_vars, sim_data, me
   sim_params$var_choices <- names(sim_params$sim_data)
   names(sim_params$var_choices) <- sim_params$var_choices
   sim_params$expression_tbl = tibble(Select = character(0),
-                                     Variables = character(0),
+                                     # Variables = character(0),
                                      Expression = character(0),
-                                     Arguments = character(0),
+                                     # Arguments = character(0),
                                      Name = character(0))
   
   sim_params$sim_mean <- mean
@@ -133,6 +133,13 @@ reset_summary_tables <- function(summary_tables) {
   
 }
 
+# Reset expr_params ---
+reset_expr_params <- function(expr_params, var_names) {
+  expr_params$var_names <- var_names
+  expr_params$expr_list <- c()
+  
+  return(expr_params)
+}
 
 # Update accordion ----
 

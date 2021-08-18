@@ -1,3 +1,4 @@
+library(shiny)
 fluidRow(
   column(
     3,
@@ -117,7 +118,21 @@ fluidRow(
                             Shiny.setInputValue('expr_row',
                               clicked_id.split('_')[1],
                               {priority: 'event'});
-                                 }"
+                                 };
+              
+              function ckChange(el) {
+                        var ckName = document.getElementsByName(el.name);
+                        for (var i = 0, c; c = ckName[i]; i++) {
+                         c.disabled = !(!el.checked || c === el);
+                        };
+                    };
+                    
+            function checkboxProperties(el) {
+            
+            get_id(el.id) ;
+            ckChange(el) ;
+            }
+              "
             )
           )
         )

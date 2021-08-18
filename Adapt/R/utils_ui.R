@@ -56,6 +56,16 @@ create_btn <- function(x) {
   )
 }
 
+create_checkbox <- function(x) {
+  paste0(
+    '<input type="checkbox"  name="selected" id="select_',
+    x, 
+    '"onclick=checkboxProperties(this)>'
+  )
+}
+
+
+
 ## Taken from: https://towardsdatascience.com/heres-how-to-spice-up-your-shiny-app-84866ccb69dd
 set_html_breaks <- function(n) {
   HTML(strrep(br(),n))
@@ -83,9 +93,17 @@ get_expr_mult <- function(f, X, weights=NULL) {
 }
 
 get_expr_unary <- function(f, X, pow=NULL) {
+  multi_expr <- str_detect(X,  "\\+|-")
+  
+  if (any(multi_expr)) {
+    # If any of vars is a weighted sum we wrap it in parantheses
+    vars[which(multi_expr)] <- str_c("\\left(", vars[which(multi_expr)], "\\right)")
+  }
   
   if (f == "^") {
     str_c(X, "^", pow)
+  } else if (any(multi_expr)) {
+    str_c(f, X)
   } else {
     str_c(f,"(", X, ")")
   }
