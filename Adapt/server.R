@@ -37,6 +37,7 @@ shinyServer(function(input, output, session) {
    
    
    observeEvent(input$upload_file, {
+      
       shinyjs::toggle("file_info")
       
    })
@@ -73,7 +74,9 @@ shinyServer(function(input, output, session) {
  })
 
  output$vars <- renderText({
+    
     names(prob_values$data)
+    
  })
  
  #### Dynamic UI components ####
@@ -169,7 +172,7 @@ shinyServer(function(input, output, session) {
       n_days <- input$n_days
       
       total <- n_days*decision_pts
-      
+      print(input$independ_dist)
       ## If new variable is independent (or first variable) then draw samples
       if (input$independ_dist == "Yes" || sim_params$num_vars == 1) {
          
@@ -203,12 +206,11 @@ shinyServer(function(input, output, session) {
                        "Binomial" =  binomial_str(size = input$bin_n, p = input$bin_p),
                        "Gamma"     = gamma_str(shape = input$gamma_s, rate = input$gamma_r)
                        )
-         acc_id = str_c("accordion-", sim_params$num_vars, collapse = "")
+         id = str_c("var-", sim_params$num_vars, collapse = "")
          
-         insert_accordion("#variable_summary", where = "beforeEnd", acc_id = acc_id,
-                          label = h4(sim_var_name()),  tags$h5(expr_str))
+         insert_variable_UI("#variable-list", where = "beforeEnd", id = id,
+                          label = h3(str_c(sim_var_name(), " ~ ", expr_str)))
          
-         runjs(run_accordion_js(acc_id))
      
          
          if (input$time_varying=="Yes") {
@@ -259,26 +261,68 @@ shinyServer(function(input, output, session) {
          
          new_var <- sim_params$sim_mean + sd*sim_params$sim_error
       
+         # parent_id = str_c("var-", sim_params$num_vars)
          acc_id = str_c("accordion-", sim_params$num_vars)
          ids <- c("mean", "variance", "error")
          
-         acc_item <- map(
-            ids, ~ accordion_item(id = str_c(sim_var_name(), "-", .),
-                                  label = .,
-                                  expr_params[[str_c(., "_expr")]])
-            ) %>% 
-            tagList()
+         # acc_item <- map(
+         #    ids, ~ accordion_item(id = str_c(sim_var_name(), "-", .),
+         #                          label = .,
+         #                          expr_params[[str_c(., "_expr")]])
+         #    ) %>% 
+         #    tagList()
             
+         acc_item <- map(ids, ~ tags$li(tags$p(
+            case_when(
+               . == 'error' ~ str_c(., " ~ ", expr_params[[str_c(., "_expr")]]),
+               TRUE ~ str_c(., " = ", expr_params[[str_c(., "_expr")]])
+            )
+         ))) %>%
+            tags$ul()
          
-         insert_accordion("#variable_summary", where = "beforeEnd", 
-                          acc_id = acc_id,
-                          label = h4(sim_var_name()), item = acc_item)
+         insert_accordion_list_item("#variable-list", 
+                                    where = "beforeEnd", 
+                                    acc_id = acc_id,
+                                    label = sim_var_name(),
+                                    tags$p(withMathJax(helpText('Dynamic output 1:  $$X \\sim \\mathcal{N}(\\mu,\\sigma^{2})$$')))
+                          )
          
          runjs(run_accordion_js(acc_id))
+         runjs("MathJax = {
+                      tex: {
+                        inlineMath: [['$', '$']]
+                      },
+                      svg: {
+                        fontCache: 'global'
+                      }
+                    };")
          
-         for (id in ids ) {
-            runjs(run_accordion_js(str_c(sim_var_name(), "-", id)))
-         }
+         removeUI(selector = "#MathJax-script")
+         removeUI(selector = "#MathJax-fmt")
+         insertUI(
+            selector = "head", where = "beforeEnd", immediate = T,
+            ui = tagList(
+               tags$script(
+                  id = "MathJax-fmt", type = "text/script",
+                  "MathJax = {
+                      tex: {
+                        inlineMath: [['$', '$']]
+                      },
+                      svg: {
+                        fontCache: 'global'
+                      }
+                    };"),
+               tags$script(
+                  type="text/javascript", id="MathJax-script",
+                  "async src"="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js")
+               )
+            )
+         
+         
+         # for (id in ids ) {
+         #    runjs(run_accordion_js(str_c(sim_var_name(), "-", id)))
+         # }
+         # 
          
       }
       
@@ -310,10 +354,12 @@ shinyServer(function(input, output, session) {
       )
       
       
-     
+      
       shinyjs::reset("sim_var_name")
       shinyjs::hide("loc_scale_column")
       shinyjs::hide("time_varying")
+      shinyjs::enable("sim_var_name")
+      shinyjs::disable("gen_var")
       
       ## Updates select input with current simulated data variables
       ## Allows user to build conditional distribution for a new variable 
@@ -400,14 +446,23 @@ shinyServer(function(input, output, session) {
    # Logic to (en/dis)able action buttons in modal dialog ----
    
    source(file.path("R", "utils_enableLogic_modalDialog.R"))
-
-   toggle_genVar_btn(input, sim_params)
+   
+   
+   toggle_genVar_btn_init(input, sim_params)
+   toggle_genVar_btn_IV(input, sim_params)
+   toggle_genVar_btn_DV(input, sim_params)
+   
    
    toggle_apply_op_btn(input, sim_params)
    
    toggle_mean_variance_btn(input, sim_params)
    
    toggle_err_btn(input, sim_params)
+   
+   toggle_indpendence_btn(input, sim_params)
+
+   toggle_name_btn1(input)
+   toggle_name_btn2(input)
    
    #### Dynamic Display of operation choices for mean/var specification #### 
    source(file.path("R", "utils_visibilityLogic_modalDialog.R"))

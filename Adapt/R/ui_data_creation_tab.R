@@ -8,7 +8,7 @@ fluidRow(
       radioButtons(
         "independ_dist",
         label = "Are the new variable and previous variables\n independently distributed?",
-        choices = c("Yes", "No")
+        choices = c( "Not selected" = "", "Yes", "No")
       )
     ),
     radioButtons(
@@ -31,6 +31,10 @@ fluidRow(
     ),
     uiOutput("dist_params"),
     actionButton("gen_var", "Generate"),
+    tags$script("
+                  $('#gen_var').on('click', function(){
+                    reloadJs('https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js');
+                  });"),
     tags$script("$('#gen_var').prop('disabled', true);")
   ),
   shinyjs::hidden(
@@ -112,29 +116,7 @@ fluidRow(
         id = "loc_scale",
         div(
           DT::dataTableOutput(outputId = "loc_scale_tbl"),
-          tags$script(
-            HTML(
-              "function get_id(clicked_id) {
-                            Shiny.setInputValue('expr_row',
-                              clicked_id.split('_')[1],
-                              {priority: 'event'});
-                                 };
-              
-              function ckChange(el) {
-                        var ckName = document.getElementsByName(el.name);
-                        for (var i = 0, c; c = ckName[i]; i++) {
-                         c.disabled = !(!el.checked || c === el);
-                        };
-                    };
-                    
-            function checkboxProperties(el) {
-            
-            get_id(el.id) ;
-            ckChange(el) ;
-            }
-              "
-            )
-          )
+          includeScript("www/dataTableUtils.js")
         )
         ,
         shinyjs::hidden(actionButton("calc_mean", "Generate Mean")),

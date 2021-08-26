@@ -84,7 +84,7 @@ validate_variable_name <- function(name, df_names) {
     stringr::str_detect(name, "[[:space:]]") |
     stringr::str_detect(name, "[^_[:^punct:]]") |
     stringr::str_detect(name, "[A-Z]") |
-    (name %in% names(df_names))
+    (name %in% df_names)
   
   return(condition)
 }
@@ -150,8 +150,34 @@ insert_accordion <- function(selector, where, acc_id, label, item){
     immediate = TRUE,
     ui = tags$div(accordion_item(
       id = acc_id,
-      label = h4(label),
+      label = h3(label),
       item
     ))
   )
 }
+
+
+insert_accordion_list_item <- function(selector, where, acc_id, label, item){
+  insertUI(
+    selector,
+    where = where,
+    immediate = TRUE,
+    ui = tags$li(accordion_item(
+      id = acc_id,
+      label = h3(label),
+      item
+    ))
+  )
+}
+
+insert_variable_UI <- function(selector, where, id, label, ...) {
+  insertUI(
+    selector,
+    where = where,
+    immediate = TRUE,
+    ui = tags$li(
+      tags$div(label, ...)
+      )
+  )
+}
+

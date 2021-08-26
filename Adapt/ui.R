@@ -34,8 +34,11 @@ shinyUI(fluidPage(
                         }
                       ')),
         includeCSS("www/accordion.css"), 
-        includeCSS("www/accordion.js"), 
-        tags$script("MathJax = {
+        includeCSS("www/style.css"), 
+        includeScript("www/accordion.js"), 
+        includeScript("www/latexRender.js"),
+        tags$script(id = "MathJax-fmt", type = "text/script",
+                     "MathJax = {
                       tex: {
                         inlineMath: [['$', '$']]
                       },

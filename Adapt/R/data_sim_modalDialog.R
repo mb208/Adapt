@@ -9,16 +9,8 @@ data_gen_modal <- modalDialog(
   fluidPage(
     shinyjs::useShinyjs(),
     # includeScript("www/accordion.js"),
-    # includeCSS("www/accordion.css"), 
-    tags$script(type="text/javascript", src = "www/accordion.js"),
-    tags$script("MathJax = {
-                      tex: {
-                        inlineMath: [['$', '$']]
-                      },
-                      svg: {
-                        fontCache: 'global'
-                      }
-                    };"),
+    # includeCSS("www/accordion.css"),
+    # tags$script(type="text/javascript", src = "www/accordion.js"),
     fluidRow(
       column(
         3,
@@ -62,7 +54,11 @@ data_gen_modal <- modalDialog(
                          ),
                 tabPanel("Data Dict",
                          set_html_breaks(1),
-                         tags$div(id = "variable_summary", h2(strong("Variables"))
+                         tags$div(id = "variable_summary", 
+                                  h2(strong("Variables"),
+                                     tags$ul(id = "variable-list",
+                                             style="list-style-type:disc;")
+                                     )
                          
                         )
                 )

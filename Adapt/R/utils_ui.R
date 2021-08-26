@@ -154,6 +154,12 @@ accordion_item <- function(id, label, ...) {
           tags$div(class = "panel", ...))
 }
 
+accordion_list_item <- function(id, label, ...) {
+  tagList(tags$li(id = id, class="accordion", label),
+          tags$div(class = "panel", ...))
+}
+
+
 # Template to apply JS to new accordion item
 run_accordion_js <- function(acc_id) {
   return(str_interp(

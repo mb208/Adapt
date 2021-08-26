@@ -1,56 +1,14 @@
-.example-parent {
-  border: 2px solid #DFA612;
-  color: black;
-  display: flex;
-  font-family: sans-serif;
-  font-weight: bold;
+.var-list-item {
+  text-indent: 5%;
+  padding: 0 18px;
+  background-color: white;
+  overflow: hidden;
 }
 
-.example-origin {
-  flex-basis: 100%;
-  flex-grow: 1;
-  padding: 10px;
+.outer-div {
+  margin: 0 auto;
 }
 
-.example-draggable {
-  background-color: #4AAE9B;
-  font-weight: normal;
-  margin-bottom: 10px;
-  margin-top: 10px;
-  padding: 10px;
-}
-
-.example-dropzone {
-  background-color: #6DB65B;
-  flex-basis: 100%;
-  flex-grow: 1;
-  padding: 10px;
-}
-
-/* styling for cards */
-
-.card {
-    position: relative;
-    box-sizing: border-box;
-    padding: 0 32px;
-    border-radius: 8px;
-    margin-bottom: 24px;
-    border-color:black;
-}
-
-
-/* reset p margins */
-
-.card p {
-    margin-bottom: 0;
-}
-
-/* adjust inner padding */
-
-.card :first-child {
-    padding-top: 16px;
-}
-
-.card :last-child {
-    padding-bottom: 16px;
+.inner-div {
+  margin-left: 50px;
 }
