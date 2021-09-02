@@ -8,9 +8,6 @@ source("R/utils_ui.R")
 data_gen_modal <- modalDialog(
   fluidPage(
     shinyjs::useShinyjs(),
-    # includeScript("www/accordion.js"),
-    # includeCSS("www/accordion.css"),
-    # tags$script(type="text/javascript", src = "www/accordion.js"),
     fluidRow(
       column(
         3,
@@ -45,14 +42,14 @@ data_gen_modal <- modalDialog(
                   withMathJax(DT::dataTableOutput("sim_data")),
                   downloadButton("downloadSimData", "Download Data")
                 ),
-                tabPanel("Data Summary", reactableOutput("data_dict")),
-                tabPanel("Latex Test",
-                         tagList(tags$div(tags$h4(withMathJax(helpText('Dynamic output 1:  \\(\\mu\\)'))))),
-                         accordion_item(h3("Part 1"), 
-                                        accordion_item("mean",
-                                                       tags$p(withMathJax(helpText('Dynamic output 1:  $$X \\sim \\mathcal{N}(\\mu,\\sigma^{2})$$')))))
-                         ),
-                tabPanel("Data Dict",
+                # tabPanel("Data Summary", reactableOutput("data_dict")),
+                # tabPanel("Latex Test",
+                #          tagList(tags$div(tags$h4(withMathJax(helpText('Dynamic output 1:  \\(\\mu\\)'))))),
+                #          accordion_item(h3("Part 1"), 
+                #                         accordion_item("mean",
+                #                                        tags$p(withMathJax(helpText('Dynamic output 1:  $$X \\sim \\mathcal{N}(\\mu,\\sigma^{2})$$')))))
+                #          ),
+                tabPanel("Data List",
                          set_html_breaks(1),
                          tags$div(id = "variable_summary", 
                                   h2(strong("Variables"),

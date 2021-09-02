@@ -94,15 +94,12 @@ get_expr_mult <- function(f, X, weights=NULL) {
 
 get_expr_unary <- function(f, X, pow=NULL) {
   multi_expr <- str_detect(X,  "\\+|-")
-  
-  if (any(multi_expr)) {
-    # If any of vars is a weighted sum we wrap it in parantheses
-    vars[which(multi_expr)] <- str_c("\\left(", vars[which(multi_expr)], "\\right)")
-  }
-  
+
   if (f == "^") {
     str_c(X, "^", pow)
-  } else if (any(multi_expr)) {
+  } else if (f=="None") {
+    X
+  } else if (multi_expr) {
     str_c(f, X)
   } else {
     str_c(f,"(", X, ")")
@@ -173,4 +170,11 @@ run_accordion_js <- function(acc_id) {
             })
                  "  
   ) )
+}
+
+# Latex tag ----
+gen_MathJax_html <- function(elt) {
+  elt <- str_c("\\(", elt, "\\)", collapse = "")
+  str_interp('<span class="help-block">${elt}</span>
+<script>if (window.MathJax) MathJax.Hub.Queue(["Typeset", MathJax.Hub]);</script>')
 }

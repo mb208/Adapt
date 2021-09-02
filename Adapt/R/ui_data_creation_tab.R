@@ -12,8 +12,8 @@ fluidRow(
       )
     ),
     radioButtons(
-      "time_varying",
-      label = "Does the variable vary with time?",
+      "constant_time",
+      label = "Is the variable constant over time?",
       choices = c("Yes", "No")
     ),
     selectizeInput(
@@ -31,10 +31,6 @@ fluidRow(
     ),
     uiOutput("dist_params"),
     actionButton("gen_var", "Generate"),
-    tags$script("
-                  $('#gen_var').on('click', function(){
-                    reloadJs('https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js');
-                  });"),
     tags$script("$('#gen_var').prop('disabled', true);")
   ),
   shinyjs::hidden(

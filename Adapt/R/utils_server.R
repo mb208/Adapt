@@ -141,6 +141,13 @@ reset_expr_params <- function(expr_params, var_names) {
   return(expr_params)
 }
 
+reset_tex_params <- function(tex_params, var_names) {
+  tex_params$var_names <- var_names
+  tex_params$expr_list <- c()
+  
+  return(tex_params)
+}
+
 # Update accordion ----
 
 insert_accordion <- function(selector, where, acc_id, label, item){

@@ -36,19 +36,6 @@ shinyUI(fluidPage(
         includeCSS("www/accordion.css"), 
         includeCSS("www/style.css"), 
         includeScript("www/accordion.js"), 
-        includeScript("www/latexRender.js"),
-        tags$script(id = "MathJax-fmt", type = "text/script",
-                     "MathJax = {
-                      tex: {
-                        inlineMath: [['$', '$']]
-                      },
-                      svg: {
-                        fontCache: 'global'
-                      }
-                    };"), 
-        tags$script(type="text/javascript", id="MathJax-script",
-                    "async src"="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"),
-        tags$script(type="text/javascript", src = "www/accordion.js")
     ),
     # Application title
     titlePanel("Randomization Design"),

@@ -119,9 +119,18 @@ shinyServer(function(input, output, session) {
  expr_params <- reactiveValues(
     var_names = c(),
     expr_list = c(), # latex using for data dictionary tab
+    tex_name = NULL,
     mean_expr = NULL,
     variance_expr  = NULL,
     error_expr  = NULL
+ )
+ 
+ tex_params <- reactiveValues(
+    var_names = c(),
+    tex_list = c(), # latex using for data dictionary tab
+    mean_tex = NULL,
+    variance_tex  = NULL,
+    error_tex  = NULL
  )
  
  sim_var_name <- reactive({
@@ -171,6 +180,9 @@ shinyServer(function(input, output, session) {
       decision_pts <- input$decision_pts
       n_days <- input$n_days
       
+      # get latex name for future use
+      tex_params$tex_name <- tex_var_name(sim_var_name()) 
+      
       total <- n_days*decision_pts
       print(input$independ_dist)
       ## If new variable is independent (or first variable) then draw samples
@@ -200,20 +212,34 @@ shinyServer(function(input, output, session) {
          )
          summary_tables$param_dists[[sim_var_name()]] <- dist_table
          
-         expr_str <- switch(input$data_dist,
-                       "Gaussian"  = guass_str(mean = input$guass_mu, sd = input$guass_sd),
-                       "Bernoulli" = bern_str(p = input$bern_p),
-                       "Binomial" =  binomial_str(size = input$bin_n, p = input$bin_p),
-                       "Gamma"     = gamma_str(shape = input$gamma_s, rate = input$gamma_r)
-                       )
+         # expr_str <- switch(input$data_dist,
+         #               "Gaussian"  = guass_str(mean = input$guass_mu, sd = input$guass_sd),
+         #               "Bernoulli" = bern_str(p = input$bern_p),
+         #               "Binomial" =  binomial_str(size = input$bin_n, p = input$bin_p),
+         #               "Gamma"     = gamma_str(shape = input$gamma_s, rate = input$gamma_r)
+         #               )
+         
+         
+         
+         expr_str <- switch(
+            input$data_dist,
+            "Gaussian"  = guass_tex(mean = input$guass_mu, sd = input$guass_sd),
+            "Bernoulli" = bern_tex(p = input$bern_p),
+            "Binomial" =  binomial_tex(size = input$bin_n, p = input$bin_p),
+            "Gamma"     = gamma_tex(shape = input$gamma_s, rate = input$gamma_r)
+         ) %>%
+            c(tex_params$tex_name, " \\sim ", .) %>%
+            str_c(collapse = "") %>%
+            render_tex_inline()
+         
          id = str_c("var-", sim_params$num_vars, collapse = "")
          
          insert_variable_UI("#variable-list", where = "beforeEnd", id = id,
-                          label = h3(str_c(sim_var_name(), " ~ ", expr_str)))
+                          label = h3(expr_str))
          
      
          
-         if (input$time_varying=="Yes") {
+         if (input$constant_time=="No") {
             new_var <- switch(
                input$data_dist,
                "Gaussian"  = rnorm(total*n_participants,
@@ -257,75 +283,33 @@ shinyServer(function(input, output, session) {
          
       } else {
          
+         # getting sd from log variance
          sd <- sqrt(exp(sim_params$log_sim_variance))
          
          new_var <- sim_params$sim_mean + sd*sim_params$sim_error
       
-         # parent_id = str_c("var-", sim_params$num_vars)
          acc_id = str_c("accordion-", sim_params$num_vars)
          ids <- c("mean", "variance", "error")
          
-         # acc_item <- map(
-         #    ids, ~ accordion_item(id = str_c(sim_var_name(), "-", .),
-         #                          label = .,
-         #                          expr_params[[str_c(., "_expr")]])
-         #    ) %>% 
-         #    tagList()
-            
-         acc_item <- map(ids, ~ tags$li(tags$p(
-            case_when(
-               . == 'error' ~ str_c(., " ~ ", expr_params[[str_c(., "_expr")]]),
-               TRUE ~ str_c(., " = ", expr_params[[str_c(., "_expr")]])
-            )
-         ))) %>%
+         acc_item <- map(ids, 
+                         ~ tags$li(h4(tex_params[[str_c(., "_tex")]])
+           
+         )) %>%
             tags$ul()
          
          insert_accordion_list_item("#variable-list", 
                                     where = "beforeEnd", 
                                     acc_id = acc_id,
-                                    label = sim_var_name(),
-                                    tags$p(withMathJax(helpText('Dynamic output 1:  $$X \\sim \\mathcal{N}(\\mu,\\sigma^{2})$$')))
+                                    label = h3(render_tex_inline(tex_params$tex_name)),
+                                    acc_item
                           )
          
          runjs(run_accordion_js(acc_id))
-         runjs("MathJax = {
-                      tex: {
-                        inlineMath: [['$', '$']]
-                      },
-                      svg: {
-                        fontCache: 'global'
-                      }
-                    };")
          
-         removeUI(selector = "#MathJax-script")
-         removeUI(selector = "#MathJax-fmt")
-         insertUI(
-            selector = "head", where = "beforeEnd", immediate = T,
-            ui = tagList(
-               tags$script(
-                  id = "MathJax-fmt", type = "text/script",
-                  "MathJax = {
-                      tex: {
-                        inlineMath: [['$', '$']]
-                      },
-                      svg: {
-                        fontCache: 'global'
-                      }
-                    };"),
-               tags$script(
-                  type="text/javascript", id="MathJax-script",
-                  "async src"="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js")
-               )
-            )
-         
-         
-         # for (id in ids ) {
-         #    runjs(run_accordion_js(str_c(sim_var_name(), "-", id)))
-         # }
-         # 
          
       }
       
+      runjs('MathJax.Hub.Queue(["Typeset",MathJax.Hub]);') # Render new latex
       
       if (sim_params$num_vars == 1) {
          
@@ -334,12 +318,13 @@ shinyServer(function(input, output, session) {
          colnames(sim_params$sim_data) <- sim_var_name()
          
       } else {
-         
-         #sim_var_name = stringr::str_trim(input$sim_var_name)
          sim_params$sim_data[sim_var_name()] <- new_var
       }
       
       expr_params$var_names[sim_var_name()] <- sim_var_name()
+      
+      # Adding latex name to list for further use in expressions
+      tex_params$var_names[sim_var_name()] <- tex_params$tex_name
 
       ### Initialize variables for constructing conditional distribution
       sim_params <- update_sim_params(sim_params, cond_dist_step = 1, sim_params$num_vars + 1, sim_data = sim_params$sim_data)
@@ -357,7 +342,7 @@ shinyServer(function(input, output, session) {
       
       shinyjs::reset("sim_var_name")
       shinyjs::hide("loc_scale_column")
-      shinyjs::hide("time_varying")
+      shinyjs::hide("constant_time")
       shinyjs::enable("sim_var_name")
       shinyjs::disable("gen_var")
       
@@ -576,6 +561,11 @@ shinyServer(function(input, output, session) {
       expr <- f_to_str(operation_name, X = expr_vars, pow = pow, weights = weights)
       expr_params$var_names[display_name] <- expr
       expr_params$expr_list <- c(expr_params$expr_list, expr)
+
+      tex_vars <- tex_params$var_names[input$conditional_vars]
+      tex <- func_to_tex(operation_name, X = tex_vars, pow = pow, weights = weights)
+      tex_params$var_names[display_name] <- tex
+      tex_params$expr_list <- c(tex_params$expr_list, tex)
       
 
       updateConditionalVars(session=session, names = names(sim_params$var_choices))
@@ -587,7 +577,7 @@ shinyServer(function(input, output, session) {
                Select = create_checkbox(sim_params$var_cnt),
                # Variables = paste0(input$conditional_vars,
                #                    collapse = ", "),
-               Expression = expr,
+               Expression = gen_MathJax_html(tex),
                Name = display_name
             )
          )
@@ -645,10 +635,18 @@ shinyServer(function(input, output, session) {
       updateConditionalVars(session=session, names = names(sim_params$var_choices))
       
       # get mean expr for data dict
-      expr_params$mean_expr <- expr_params$expr_list[row_id] %>% unname()
+      #expr_params$mean_expr <- expr_params$expr_list[row_id] %>% unname()
       
-      expr_params <- reset_expr_params(expr_params, 
-                                       var_names = sim_params$var_choices)
+      # expr_params <- reset_expr_params(expr_params, 
+      #                                  var_names = sim_params$var_choices)
+      
+      tex_params$mean_tex <- tex_params$expr_list[row_id] %>% unname() %>% 
+         str_c("\\text{E}[", tex_params$tex_name, "] =", ., collapse = "") %>% 
+         render_tex_inline()
+
+      tex_params <-  reset_expr_params(tex_params,
+         tex_params$var_names[names(sim_params$var_choices)]
+         )
       
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")
@@ -694,10 +692,18 @@ shinyServer(function(input, output, session) {
       updateConditionalVars(session=session, names = names(sim_params$var_choices))
       
       # get var expr for data dict
-      expr_params$variance_expr <- expr_params$expr_list[row_id] %>% unname()
+      # expr_params$variance_expr <- expr_params$expr_list[row_id] %>% unname()
+      # 
+      # expr_params <- reset_expr_params(expr_params, 
+      #                                  var_names = sim_params$var_choices)
+     
+      tex_params$variance_tex <- tex_params$expr_list[row_id] %>% unname() %>% 
+         str_c("\\text{ln}(\\text{Var}[", tex_params$tex_name, "]) =", ., collapse = "") %>% 
+         render_tex_inline()
       
-      expr_params <- reset_expr_params(expr_params, 
-                                       var_names = sim_params$var_choices)
+      tex_params <-  reset_expr_params(tex_params,
+                                       tex_params$var_names[names(sim_params$var_choices)]
+      )
       
       shinyjs::reset("multi_operation")
       shinyjs::reset("unary_operation")
@@ -749,10 +755,16 @@ shinyServer(function(input, output, session) {
       
       
       # get var expr for data dict
-      expr_params$error_expr <- switch(tolower(input$error_dist),
-                                     "gaussian"  = guass_str(mean = 0, sd = input$guass_err_sd),
-                                     "double exponential" = laplace_str(location = 0, scale = input$dexp_err_scale)
-      )
+      # expr_params$error_expr <- switch(tolower(input$error_dist),
+      #                                "gaussian"  = guass_str(mean = 0, sd = input$guass_err_sd),
+      #                                "double exponential" = laplace_str(location = 0, scale = input$dexp_err_scale)
+      # )
+      
+      tex_params$error_tex <- switch(tolower(input$error_dist),
+                                       "gaussian"  = guass_tex(mean = 0, sd = input$guass_err_sd),
+                                       "double exponential" = laplace_tex(location = 0, scale = input$dexp_err_scale))  %>% 
+         str_c("\\epsilon \\sim", ., collapse = "") %>% 
+         render_tex_inline()
       
       shinyjs::hide("cond_err_dist")
       shinyjs::hide("error_dist")

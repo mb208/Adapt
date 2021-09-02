@@ -1,18 +1,25 @@
 tex_var_name <- function(name) {
-  return(str_interp("X_{${name}}"))
+  return(str_interp("X_{\\text{${name}}}"))
 }
 
-tex_multiply <- function(vars) {
+handle_sum_tex <- function(vars) {
   multi_expr <- str_detect(vars,  "\\+|-")
   
   if (any(multi_expr)) {
     # If any of vars is a weighted sum we wrap it in parantheses
-    vars[which(multi_expr)] <- str_c("\\left(", vars[which(multi_expr)], "\\right)")
+    if (length(var) > 1) {
+      vars[which(multi_expr)] <- str_c("\\left(", vars[which(multi_expr)], "\\right)")
+    } else {
+     str_c("\\left(", vars, "\\right)")
+    }
   } else {
-    
-    str_c(vars, collapse = "\\cdot")
-    
+    vars
   }
+}
+
+tex_multiply <- function(vars) {
+  vars <- handle_sum_tex(vars)
+  str_c(vars, collapse = " \\cdot ")
 }
 
 tex_divide_simp <- function(X1,X2) {
@@ -40,24 +47,36 @@ tex_divide <- function(X) {
 
 
 tex_function <- function(f, x) {
-  
-  str_glue("{f}({x})")
-  
+  if (f == "exp") {
+    str_interp("e^{${x}}")
+  } else if (f == "None") {
+    x
+  } else {
+    str_interp("\\text{${f}}(${x})")
+  }
 }
 
 tex_wght_sum <- function(weights, names) {
 
+  weights <- as.character(weights)
+  weights <- case_when(weights == "1" ~ "",
+                       weights == "-1" ~ "-",
+                       TRUE ~ weights)
   expr <-  paste0(paste0(weights, '', names), collapse = " + ") %>% 
-    str_replace("\\+\\s-", "- ") %>% 
-    str_replace("1", "")
+    str_replace_all("\\+\\s-", "- ")
   
   return(str_glue("{expr}"))
 }
 
 
 tex_power <- function(x, pow) {
- 
-   str_glue("{x}^{pow}")
+  if (any(str_detect(x,  "\\+|-"))) { 
+    x <- handle_sum_tex(x)
+  } else if (str_detect(x,  "^")) {
+    x <- str_interp("\\left(${x}\\right)")
+  }
+   
+    str_interp("${x}^{${pow}}")
   
 }
 
@@ -101,8 +120,12 @@ render_tex <- function(tex_syntax) {
   withMathJax(helpText(str_c("$$", tex_syntax, "$$", collapse = "")))
 }
 
-laplace_tex <- function(loc, scale){
-  str_interp("\\text{Laplace}( \\mu = ${loc}, b = ${scale})")
+render_tex_inline <- function(tex_syntax) {
+  withMathJax(helpText(str_c("\\(", tex_syntax, "\\)", collapse = "")))
+}
+
+laplace_tex <- function(location, scale){
+  str_interp("\\text{Laplace}( \\mu = ${location}, b = ${scale})")
 }
 
 guass_tex <- function(mean, sd) {
@@ -119,6 +142,6 @@ binomial_tex <- function(size, p) {
 }
 
 gamma_tex <- function(rate, shape) {
-  str_interp("\\text{Gammaa}(\\alpha = ${rate}, \\beta = ${shape})")
+  str_interp("\\text{Gamma}(\\alpha = ${rate}, \\beta = ${shape})")
 }
 

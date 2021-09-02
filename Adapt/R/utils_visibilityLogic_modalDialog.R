@@ -27,13 +27,13 @@ visibility_variabile_options <- function(input) {
     if (input$independ_dist == "Yes") {
       shinyjs::show("data_dist")
       shinyjs::show("dist_params")
-      shinyjs::show("time_varying")
+      shinyjs::show("constant_time")
       shinyjs::hide("loc_scale_column")
       
     } else {
       shinyjs::hide("data_dist")
       shinyjs::hide("dist_params")
-      shinyjs::hide("time_varying")
+      shinyjs::hide("constant_time")
       shinyjs::show("loc_scale_column")
       
     }
