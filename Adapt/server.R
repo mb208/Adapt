@@ -34,8 +34,8 @@ shinyServer(function(input, output, session) {
    observeEvent(input$browser2,{
       browser()
    })
-   
-   
+
+
    observeEvent(input$upload_file, {
       
       shinyjs::toggle("file_info")
@@ -98,32 +98,12 @@ shinyServer(function(input, output, session) {
       expression_tbl = tibble(
          Select = character(0),
          Expression = character(0),
-         # Arguments = character(0),
          Name = character(0)
       ),
       sim_mean = NULL,
       log_sim_variance = NULL,
       sim_error = NULL
    )
- 
- summary_tables <- reactiveValues(
-    
-    mean_tables = list(),
-    variance_tables = list(),
-    error_dist = list(),
-    data_dict = tibble(Variable = character(0), Independent = character(0)),
-    param_dists = list()
-    
- )
- 
- expr_params <- reactiveValues(
-    var_names = c(),
-    expr_list = c(), # latex using for data dictionary tab
-    tex_name = NULL,
-    mean_expr = NULL,
-    variance_expr  = NULL,
-    error_expr  = NULL
- )
  
  tex_params <- reactiveValues(
     var_names = c(),
@@ -157,8 +137,8 @@ shinyServer(function(input, output, session) {
    output$param_specification <- renderUI({
       
       switch(sim_params$cond_dist_step,
-         "1" = tags$div(h4(strong("Specify the Mean"))), 
-         "2" = tags$div(h4(strong("Specify the Variance"))),
+         "1" = tags$div(h4(strong("Specify the mean"))), 
+         "2" = tags$div(h4(strong("Specify the log variance"))),
          "3" = tags$div(h4(strong("Specify the error distribution"))),
          "" # default case
       )
@@ -187,39 +167,6 @@ shinyServer(function(input, output, session) {
       print(input$independ_dist)
       ## If new variable is independent (or first variable) then draw samples
       if (input$independ_dist == "Yes" || sim_params$num_vars == 1) {
-         
-         # Store tibble 
-         dist_table <-  switch(
-            input$data_dist,
-            "Gaussian"  = tibble(
-               Distribution = input$data_dist,
-               mean = input$guass_mu,
-               sd = input$guass_sd
-            ),
-            "Bernoulli" =  tibble(Distribution = input$data_dist, p = input$bern_p),
-            
-            "Binomial"  = tibble(
-               Distribution = input$data_dist,
-               size = input$bin_n,
-               p = input$bin_p
-            ),
-            
-            "Gamma"     = tibble(
-               Distribution = input$data_dist,
-               shape = input$gamma_s,
-               rate = input$gamma_r
-            )
-         )
-         summary_tables$param_dists[[sim_var_name()]] <- dist_table
-         
-         # expr_str <- switch(input$data_dist,
-         #               "Gaussian"  = guass_str(mean = input$guass_mu, sd = input$guass_sd),
-         #               "Bernoulli" = bern_str(p = input$bern_p),
-         #               "Binomial" =  binomial_str(size = input$bin_n, p = input$bin_p),
-         #               "Gamma"     = gamma_str(shape = input$gamma_s, rate = input$gamma_r)
-         #               )
-         
-         
          
          expr_str <- switch(
             input$data_dist,
@@ -297,16 +244,19 @@ shinyServer(function(input, output, session) {
          )) %>%
             tags$ul()
          
+         tex_header = render_tex_inline(str_c(
+            tex_params$tex_name,
+            " = \\mu(X) + \\sigma(X) \\cdot \\epsilon",
+            collapse = ""
+         ))
          insert_accordion_list_item("#variable-list", 
                                     where = "beforeEnd", 
                                     acc_id = acc_id,
-                                    label = h3(render_tex_inline(tex_params$tex_name)),
+                                    label = h3(tex_header),
                                     acc_item
                           )
          
          runjs(run_accordion_js(acc_id))
-         
-         
       }
       
       runjs('MathJax.Hub.Queue(["Typeset",MathJax.Hub]);') # Render new latex
@@ -320,8 +270,6 @@ shinyServer(function(input, output, session) {
       } else {
          sim_params$sim_data[sim_var_name()] <- new_var
       }
-      
-      expr_params$var_names[sim_var_name()] <- sim_var_name()
       
       # Adding latex name to list for further use in expressions
       tex_params$var_names[sim_var_name()] <- tex_params$tex_name
@@ -352,69 +300,21 @@ shinyServer(function(input, output, session) {
       ## Only displayed if "independ_dist" == "No"
       
       updateConditionalVars(session = session, names = names(sim_params$sim_data))
-      
-      summary_tables$data_dict <- summary_tables$data_dict %>% 
-         dplyr::bind_rows(
-            tibble(Variable = sim_var_name(), Independent = input$independ_dist)
-         )
+     
       
    })
    
    output$sim_data <- DT::renderDataTable({
       req(sim_params$sim_data)
       datatable(sim_params$sim_data,
-                    options = list(dom="t"),
-                    rownames = F)
+                selection = 'none',
+                options = list(dom="t",
+                               autoWidth = TRUE
+                               ),
+                rownames = F)
       
       })
-   
-   
-   # source(file.path("R", "sim_data_dict_reactableTable.R"), local = TRUE)$value
-   
-   output$data_dict <- renderReactable({
-      stagging <- tibble(Parameters = c("mean", "variance", "error"))
-      reactable(summary_tables$data_dict,
-                searchable = F,
-                showSortable = F
-                ,
-                details = function(index) {
-                  if (summary_tables$data_dict$Independent[index] == "No") {
-                     reactable(
-                        stagging,
-                        details = function(index_2) {
-                           if (stagging$Parameters[index_2] == "mean") {
-                              reactable(
-                                 summary_tables$mean_tables[[summary_tables$data_dict$Variable[[index]]]],
-                                 rowStyle = JS(
-                                 "function(rowInfo) {
-                                 if (rowInfo.row['selected'] == true) {
-                                 return { background: 'rgba(0, 0, 0, 0.05)' }
-                                 }
-                                 }" ),
-                                 fullWidth = FALSE
-                              )
-                           } else if (stagging$Parameters[index_2] == "variance") {
-                              reactable(summary_tables$variance_tables[[summary_tables$data_dict$Variable[[index]]]], 
-                                        rowStyle = JS(
-                                           "function(rowInfo) {
-                                 if (rowInfo.row['selected'] == true) {
-                                 return { background: 'rgba(0, 0, 0, 0.05)' }
-                                 }
-                                 }"),
-                                        fullWidth = FALSE)
-                           } else if (stagging$Parameters[index_2] == "error") {
-                              reactable(summary_tables$error_dist[[summary_tables$data_dict$Variable[[index]]]], fullWidth = FALSE)
-                           }
-                        }
-                     )
-                  } else {
-                     reactable(summary_tables$param_dists[[index]], fullWidth = FALSE)
-                  }
-
-                }
-      )
-   })
-
+ 
    # Downloadable csv of simulated dataset ----
    output$downloadSimData <- downloadHandler(
       filename = function() {
@@ -557,11 +457,6 @@ shinyServer(function(input, output, session) {
       sim_params$param_data[new_var_name] = new_var
       
       # Generate expression for data dict
-      expr_vars <- expr_params$var_names[input$conditional_vars]
-      expr <- f_to_str(operation_name, X = expr_vars, pow = pow, weights = weights)
-      expr_params$var_names[display_name] <- expr
-      expr_params$expr_list <- c(expr_params$expr_list, expr)
-
       tex_vars <- tex_params$var_names[input$conditional_vars]
       tex <- func_to_tex(operation_name, X = tex_vars, pow = pow, weights = weights)
       tex_params$var_names[display_name] <- tex
@@ -575,8 +470,6 @@ shinyServer(function(input, output, session) {
          dplyr::bind_rows(
             tibble(
                Select = create_checkbox(sim_params$var_cnt),
-               # Variables = paste0(input$conditional_vars,
-               #                    collapse = ", "),
                Expression = gen_MathJax_html(tex),
                Name = display_name
             )
@@ -616,32 +509,15 @@ shinyServer(function(input, output, session) {
       
       col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
       sim_mean <- sim_params$param_data[[col_id]]
-      
-      # Store expression table for data dictionary
-      sim_var_name <- sim_var_name()
-      mean_expr_list <-  list()
-      mean_expr_list[[sim_var_name]] <- sim_params$expression_tbl %>%
-         dplyr::select(-Select) %>% 
-         mutate(selected =  row_number() == row_id
-                )
-      summary_tables$mean_tables <- append(summary_tables$mean_tables,
-                                           mean_expr_list)
-
 
       ### Initialize variables for constructing conditional distribution
       sim_params <- update_sim_params(sim_params, cond_dist_step = 2, 
                                       sim_params$num_vars, sim_data = sim_params$sim_data, mean=sim_mean)
      
       updateConditionalVars(session=session, names = names(sim_params$var_choices))
-      
-      # get mean expr for data dict
-      #expr_params$mean_expr <- expr_params$expr_list[row_id] %>% unname()
-      
-      # expr_params <- reset_expr_params(expr_params, 
-      #                                  var_names = sim_params$var_choices)
-      
+     
       tex_params$mean_tex <- tex_params$expr_list[row_id] %>% unname() %>% 
-         str_c("\\text{E}[", tex_params$tex_name, "] =", ., collapse = "") %>% 
+         str_c("\\mu(X) =", ., collapse = "") %>% 
          render_tex_inline()
 
       tex_params <-  reset_expr_params(tex_params,
@@ -668,20 +544,6 @@ shinyServer(function(input, output, session) {
       col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
       log_sim_variance <- sim_params$param_data[[col_id]]
 
-      
-      # Store expression table for data dictionary
-      sim_var_name <- sim_var_name()
-      variance_expr_list <-  list()
-      variance_expr_list[[sim_var_name]] <- sim_params$expression_tbl %>%
-         dplyr::select(-Select)  %>% 
-         mutate(selected = row_number() == row_id)
-      
-      summary_tables$variance_tables <-
-         append(
-            summary_tables$variance_tables,
-            variance_expr_list
-         )
-      
       ### Initialize variables for constructing conditional distribution
       sim_params <- update_sim_params(sim_params, cond_dist_step = 3,
                                       sim_params$num_vars,
@@ -691,14 +553,9 @@ shinyServer(function(input, output, session) {
       
       updateConditionalVars(session=session, names = names(sim_params$var_choices))
       
-      # get var expr for data dict
-      # expr_params$variance_expr <- expr_params$expr_list[row_id] %>% unname()
-      # 
-      # expr_params <- reset_expr_params(expr_params, 
-      #                                  var_names = sim_params$var_choices)
-     
+    
       tex_params$variance_tex <- tex_params$expr_list[row_id] %>% unname() %>% 
-         str_c("\\text{ln}(\\text{Var}[", tex_params$tex_name, "]) =", ., collapse = "") %>% 
+         str_c("\\sigma(X) = \\sqrt{e^{", ., "}}", collapse = "") %>% 
          render_tex_inline()
       
       tex_params <-  reset_expr_params(tex_params,
@@ -741,24 +598,7 @@ shinyServer(function(input, output, session) {
                                               0,
                                               input$dexp_err_scale)
       )
-      
-      sim_var_name <- sim_var_name()
-      err_list <- list()
-      err_list[[sim_var_name]] <-  switch(
-         tolower(input$error_dist),
-         "gaussian" = tibble(Distribution = input$error_dist, mean = 0, sd = input$guass_err_sd),
-         "double exponential" = tibble(Distribution = input$error_dist, location = 0, scale = input$dexp_err_scale)
-      ) 
-      
-      summary_tables$error_dist <- append(summary_tables$error_dist,
-                                          err_list)
-      
-      
-      # get var expr for data dict
-      # expr_params$error_expr <- switch(tolower(input$error_dist),
-      #                                "gaussian"  = guass_str(mean = 0, sd = input$guass_err_sd),
-      #                                "double exponential" = laplace_str(location = 0, scale = input$dexp_err_scale)
-      # )
+ 
       
       tex_params$error_tex <- switch(tolower(input$error_dist),
                                        "gaussian"  = guass_tex(mean = 0, sd = input$guass_err_sd),
@@ -947,7 +787,6 @@ shinyServer(function(input, output, session) {
       )
       
    })
-   
 
    
    observeEvent(input$get_prob, {
@@ -975,8 +814,6 @@ shinyServer(function(input, output, session) {
       prob_values$generated_variables <-  c()
       
       update_sim_params(sim_params, cond_dist_step = 0, num_vars = 1, sim_data = NULL)
-      
-      summary_tables <-  reset_summary_tables(summary_tables)
       
       updateSelectInput(
          session = session,

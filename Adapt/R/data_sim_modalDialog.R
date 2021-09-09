@@ -39,16 +39,14 @@ data_gen_modal <- modalDialog(
                 tabPanel(
                   "View Data",
                   # Button Download Simulated Data,
-                  withMathJax(DT::dataTableOutput("sim_data")),
-                  downloadButton("downloadSimData", "Download Data")
+                  column(1),
+                  column(10,
+                    DT::dataTableOutput("sim_data"),
+                    br(),
+                    downloadButton("downloadSimData", "Download Data")
+                  ),
+                  column(1)
                 ),
-                # tabPanel("Data Summary", reactableOutput("data_dict")),
-                # tabPanel("Latex Test",
-                #          tagList(tags$div(tags$h4(withMathJax(helpText('Dynamic output 1:  \\(\\mu\\)'))))),
-                #          accordion_item(h3("Part 1"), 
-                #                         accordion_item("mean",
-                #                                        tags$p(withMathJax(helpText('Dynamic output 1:  $$X \\sim \\mathcal{N}(\\mu,\\sigma^{2})$$')))))
-                #          ),
                 tabPanel("Data List",
                          set_html_breaks(1),
                          tags$div(id = "variable_summary", 
