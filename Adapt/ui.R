@@ -108,8 +108,7 @@ shinyUI(fluidPage(
                         ,
                         set_html_breaks(2),
                         actionButton("get_prob",label = "Assign Treatment") 
-                        # , 
-                        # tableOutput("selected")
+                      
                         )
                     )
            ),
