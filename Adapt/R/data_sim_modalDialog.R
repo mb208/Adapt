@@ -28,7 +28,8 @@ data_gen_modal <- modalDialog(
                      value = 40)
       ),
       column(1,
-             offset = 2,
+             offset = 2
+             ,
              actionButton("browser2", "browser")
              )
     ),

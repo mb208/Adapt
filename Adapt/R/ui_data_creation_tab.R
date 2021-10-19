@@ -11,10 +11,12 @@ fluidRow(
         choices = c( "Not selected" = "", "Yes", "No")
       )
     ),
-    radioButtons(
+    selectizeInput(
       "constant_time",
-      label = "Is the variable constant over time?",
-      choices = c("Yes", "No")
+      label = "At what interval does the variable change?",
+      choices = c("Each decision point" = "dec_pt", 
+                  "Daily" = "daily",
+                  "Constant over entire trial" = "trial")
     ),
     selectizeInput(
       inputId = 'data_dist',

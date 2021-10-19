@@ -10,6 +10,7 @@ source("R/data_sim_modalDialog.R")
 source("R/utils_ui.R")
 source("R/utils_server.R")
 source("R/utils_latex_render.R")
+source("R/mod_warm_start.R")
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
@@ -77,6 +78,24 @@ shinyServer(function(input, output, session) {
     
     names(prob_values$data)
     
+ })
+ 
+ warm_start <- warmStartServer("warmstrt")
+ 
+ warm_start_act <- eventReactive(input$init_warmstrt, {
+   require(prob_values$data)
+   
+   return(eval_warm_start(d_list = warm_start(), prob_values$data))
+   
+ })
+ 
+ output$warmStartBar <- renderPlot({
+   
+   data.frame(actions = warm_start_act()) %>% 
+     ggplot(aes(x = actions)) +
+     geom_bar() +
+     theme_classic()
+   
  })
  
  #### Dynamic UI components ####
@@ -186,7 +205,7 @@ shinyServer(function(input, output, session) {
          
      
          
-         if (input$constant_time=="No") {
+         if (input$constant_time=="dec_pt") {
             new_var <- switch(
                input$data_dist,
                "Gaussian"  = rnorm(total*n_participants,
@@ -204,7 +223,29 @@ shinyServer(function(input, output, session) {
                                     rate = input$gamma_r)
             )
             
-         } else {
+         } else if (input$constant_time=="daily") {
+           
+             new_var <- switch (
+               input$data_dist,
+               "Gaussian"  = rep(rnorm(n_participants*decision_pts,
+                                       mean = input$guass_mu,
+                                       sd = input$guass_sd),
+                                 n_days), 
+               "Bernoulli" = rep(as.integer(rbernoulli(n_participants*decision_pts,
+                                                       p = input$bern_p)),
+                                 n_days), 
+               
+               "Binomial"  = rep(rbinom(n_participants*decision_pts,
+                                        size = input$bin_n,
+                                        p = input$bin_p),
+                                 n_days),
+               
+               "Gamma"     = rep(rgamma(n_participants*decision_pts,
+                                        shape = input$gamma_s,
+                                        rate = input$gamma_r),
+                                 n_days)
+             )
+         } else if (input$constant_time=="trial") {
             new_var <- switch (
                input$data_dist,
                "Gaussian"  = rep(rnorm(n_participants,
@@ -539,7 +580,7 @@ shinyServer(function(input, output, session) {
       
       # We extract the variable display name from the table using row_id
       # Using this we get the column name from var_choices
-      # With this we can extract the appropiate column for the mean
+      # With this we can extract the appropriate column for the mean
       
       col_id <- sim_params$var_choices[[sim_params$expression_tbl[row_id, "Name", drop=T]]]
       log_sim_variance <- sim_params$param_data[[col_id]]

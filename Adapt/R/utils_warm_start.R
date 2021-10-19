@@ -17,7 +17,7 @@ parse_variable <- function(node) {
   
   id <- ifelse(("index" %in% attrs), node[["index"]], node[["name"]])
   
-  return(c(id, threshold, operation))
+  return(list(id, threshold, operation))
 
 }
 
@@ -25,7 +25,7 @@ parse_clause <- function(node) {
   # Check if required names are included
   attrs <- names(node) # values of variable
   stopifnot(all(c("variables", "agg", "actions", "probs", "adaptive") %in% attrs))
-  stopifnot(any(c("and", "or") %in% node[["agg"]]))
+  stopifnot(any(c("and", "or") %in% node[["agg"]] | is.null(node[["agg"]])))
     
 
   variables <- purrr::map(node$variables, parse_variable) %>%  unname() 
@@ -71,27 +71,34 @@ eval_clause <- function(clause, data) {
   
   logic = list("and"=`I`, "or" = `!`)
   
-  aggs = clause$agg
   
-  tuples  <- lapply(clause$variables, function(x) {
-    eval_variable(data[, x[[1]]], x[[2]], x[[3]])
-  })
-  
-  # Initialize nested logic operations
-  n <- length(tuples)
-  truth_values <- or_and(tuples[[1]],tuples[[2]], logic[[aggs[[1]]]])
-  
-  if (n == 2) {
+  if (length(clause$variables) == 1) {
+    rule <- clause$variables[[1]]
     
-    return(truth_values)
+    return(eval_variable(data[, rule[[1]]], rule[[2]], rule[[3]]))
     
   } else {
-    for (i in 2:(length(tuples)-1)) {
-      truth_values <- or_and(truth_values, tuples[[i+1]], logic[[aggs[[i]]]])
+    aggs = clause$agg
+    
+    tuples  <- lapply(clause$variables, function(x) {
+      eval_variable(data[, x[[1]]], x[[2]], x[[3]])
+    })
+    
+    # Initialize nested logic operations
+    n <- length(tuples)
+    truth_values <- or_and(tuples[[1]],tuples[[2]], logic[[aggs[[1]]]])
+    
+    if (n == 2) {
+      
+      return(truth_values)
+      
+    } else {
+      for (i in 2:(length(tuples)-1)) {
+        truth_values <- or_and(truth_values, tuples[[i+1]], logic[[aggs[[i]]]])
+      }
+      return(truth_values)
     }
-    return(truth_values)
   }
-  
 }
 
 eval_warm_start <- function(d_list, data) {

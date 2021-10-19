@@ -1,22 +1,14 @@
-#
-# This is the user-interface definition of a Shiny web application. You can
-# run the application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
 library(shinydashboard)
 library(tidyverse)
 library(shinythemes)
 
 source("R/utils_ui.R")
+source("R/mod_warm_start.R")
 
 
 
-# Define UI for application that draws a histogram
+
 shinyUI(fluidPage(
     shinyjs::useShinyjs(),
     theme = shinytheme("sandstone"),
@@ -38,110 +30,54 @@ shinyUI(fluidPage(
         includeScript("www/accordion.js"), 
     ),
     # Application title
-    titlePanel("Randomization Design"),
+    titlePanel("Dynamic Treatment Regimes"),
     actionButton("browser", "browser"),
     tags$script("$('#browser').hide();"),
-    column(2,
-        tags$div(
-            h3(strong("Data Source")),
-            h4("Generate data source by uploading an an existing file from your computer or simulating a data set from scratch"),
-            actionButton("upload_file", "Upload Data"),
-            actionButton("data_simulation", "Simulate"),
-            br(),
-         shinyjs::hidden(fileInput("file_info", 
-                   "Upload File",
-                   accept = ".csv")),
-            h4('Choose Variables'), 
-            selectInput('calc_vars', 
-                    label = "",
-                    list(), 
-                    multiple=TRUE, 
-                    selectize=TRUE)
-        ),
-        h4('Choose Data Transformation'),
-        selectizeInput('data_agg', 
-                             label = "",
-                             list("sum",
-                                  "average",
-                                  "weighted average"),
-                             options = list(maxItems = 1,
-                                            placeholder = "select data transformation",
-                                            onInitialize = I('function() { this.setValue(0); }')) 
-                ),
-        h4('Choose Probability Mapping'),
-        selectizeInput('prob_map',
-                       label = "",
-                       list("expit", 
-                            "tanh", 
-                            "arctan"),
-                       options = list(maxItems = 1,
-                                      placeholder = "select probability generation",
-                                      onInitialize = I('function() { this.setValue(0); }')) 
-        ),
-        actionButton("apply_aggs",label = "Apply Sequence")
-        ), # end of column 1
-    column(1, 
-           offset = 0,
-           style='padding:20px;',
-           conditionalPanel(condition = "input.data_agg == 'weighted average'",
-                            uiOutput("weighted_avg")
-                            )
-           ),
-    column(5,
-           fluidRow(box(title="Probability generation ",
-                        tags$table(border = 2, 
-                                   tags$thead(
-                                       tags$tr(
-                                           tags$th(colspan = 4, height = 50, width = 600, 
-                                                   "Data Transformation Steps", style = 'text-align: center')
-                                       )
-                                   ), 
-                                   tags$tbody(
-                                       tags$tr(id = "agg-table-body",
-                                               tags$td(align = "center", strong("Variables")),
-                                               tags$td(align = "center", strong("1st Method")),
-                                               tags$td(align = "center", strong("2nd Method")),
-                                               tags$td(align = "center", strong("Variable Name"))
-                                       )
-                                   )
-                        )
-                        ,
-                        set_html_breaks(2),
-                        actionButton("get_prob",label = "Assign Treatment") 
-                      
-                        )
-                    )
-           ),
-    column(3,
-           tags$div(id = "prb-plt", 
-                    class = "asn-plt",
-                    plotOutput("prob_plot", width = "auto"),
-                    tags$script(HTML("$('#apply_aggs').click(function(){
-                                            $('#prb-plt').css('visibility', 'visible')  ;
-                                        }) "
-                    ))
-                    ),
-           tags$div(id = "treat-plt", 
-                    class = "asn-plt",
-                    plotOutput("assignment_plot", width = "auto"),
-                    tags$script(HTML("$('#get_prob').click(function(){
-                                        $('#treat-plt').css('visibility', 'visible')  ;
-                                    })"
-                    ))
-                    ),
-           actionButton("reset",label = "Reset"),
-           tags$script(HTML("$('#reset').click(function(){
-                                $('table tbody').find('.agg-seq').remove() ;
+    tabsetPanel(type = "tabs",
+                tabPanel("Main",
+                         column(3,
+                                tags$div(
+                                  h3(strong("Data Source")),
+                                  h4("Generate data source by uploading an an existing file from your computer or simulating a data set from scratch"),
+                                  actionButton("upload_file", "Upload Data"),
+                                  actionButton("data_simulation", "Simulate"),
+                                  br(),
+                                  shinyjs::hidden(fileInput("file_info", 
+                                                            "Upload File",
+                                                            accept = ".csv"))
+                                  )
+                                )
+                         ),
+                tabPanel("Randomization",
+                         source(file.path("R", "ui_Randomization.R"),  local = TRUE)$value
+                         ),
+                tabPanel("Treatment Regime",
+                         column(3,
+                                tags$div(
+                                  h3(strong("Upload Warm Start")),
+                                  h4("Initialize treatement regime by uploading warm start configuration."),
+                                  warmStartUI("warmstrt"),
+                                  actionButton("init_warmstrt", "Apply Warm Start"),
+                                  plotOutput("warmStartBar")
+                                )
+                         ),
+                         column(4,
+                                h3(strong("Simulate Treatment Regime")),
+                                h4("Simulate treatment regime using decision lists."),
+                                actionButton("sim_DLs", "Simulate"),
+                                sliderInput("view_stages", 
+                                             min = 1, 
+                                            value = c(1,2),
+                                            max=42,
+                                            "Choose stages to view"),
+                                plotOutput("dl_plot")
+                                ),
+                         column(3,
                                 
-                             }) ;
-                            
-                            $('#reset').click(function(){
-                            $('.asn-plt').css('visibility', 'hidden') ;
-                            });
-                            "
-           ))
-           ),
-    column(1)
+                                
+                                )
+                         )
+    )
     )
 )
 

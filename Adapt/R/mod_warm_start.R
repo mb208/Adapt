@@ -33,21 +33,21 @@ warmStartServer <- function(id) {
 }
 
 
-ui <- fluidPage(
-  mainPanel(actionButton("browser", "browser"),
-            warmStartUI("warmstrt"))
-
-)
-
-
-
-
-
-server <- function(input, output, session) {
-  
-  data <- warmStartServer("warmstrt")
-  
-  
-}
-
-shinyApp(ui, server)
+# ui <- fluidPage(
+#   mainPanel(actionButton("browser", "browser"),
+#             warmStartUI("warmstrt"))
+# 
+# )
+# 
+# 
+# 
+# 
+# 
+# server <- function(input, output, session) {
+#   
+#   data <- warmStartServer("warmstrt")
+#   
+#   
+# }
+# 
+# shinyApp(ui, server)
