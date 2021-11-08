@@ -2,6 +2,7 @@ library(shiny)
 library(shinydashboard)
 library(tidyverse)
 library(shinythemes)
+library(shinyjs)
 
 source("R/utils_ui.R")
 source("R/mod_warm_start.R")
@@ -46,6 +47,32 @@ shinyUI(fluidPage(
                                                             "Upload File",
                                                             accept = ".csv"))
                                   )
+                                ),
+                         column(3,                                 
+                                set_html_breaks(3),
+                                shinyjs::hidden(
+                                  tags$div(id = "setup_dynr",
+                                           selectInput(
+                                             'sel_covariates',
+                                             label = "Choose Covariates",
+                                             list(),
+                                             multiple = TRUE,
+                                             selectize =TRUE
+                                           ),
+                                           selectInput(
+                                             'sel_outcome',
+                                             label = "Choose Outcome",
+                                             list(),
+                                             multiple = FALSE
+                                           ), 
+                                           selectInput(
+                                             'sel_action',
+                                             label = "Specify actions",
+                                             list(),
+                                             multiple = FALSE
+                                           )
+                                           )
+                                ),
                                 )
                          ),
                 tabPanel("Randomization",
@@ -65,15 +92,18 @@ shinyUI(fluidPage(
                                 h3(strong("Simulate Treatment Regime")),
                                 h4("Simulate treatment regime using decision lists."),
                                 actionButton("sim_DLs", "Simulate"),
-                                sliderInput("view_stages", 
-                                             min = 1, 
-                                            value = c(1,2),
-                                            max=42,
-                                            "Choose stages to view"),
-                                plotOutput("dl_plot")
+                                set_html_breaks(3),
+                                actionButton("dply_dlplot", "Toggle display"),
+                                tags$div(id = "dl_display",
+                                         sliderInput("view_stages", 
+                                                     min = 1, 
+                                                     value = c(1,2),
+                                                     max=42,
+                                                     "Choose stages to view"),
+                                         plotOutput("dl_plot")
+                                         )
                                 ),
-                         column(3,
-                                
+                         column(3
                                 
                                 )
                          )

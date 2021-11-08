@@ -6,11 +6,15 @@ library(reactable)
 library(shinydashboardPlus)
 
 
+library(listdtr)
+
+
 source("R/data_sim_modalDialog.R")
 source("R/utils_ui.R")
 source("R/utils_server.R")
 source("R/utils_latex_render.R")
 source("R/mod_warm_start.R")
+source("R/utils_data_proc.R")
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
@@ -27,11 +31,7 @@ shinyServer(function(input, output, session) {
 
    )
 
-   # For debugging
-   observeEvent(input$browser,{
-      browser()
-   })
-
+ 
    observeEvent(input$browser2,{
       browser()
    })
@@ -83,7 +83,7 @@ shinyServer(function(input, output, session) {
  warm_start <- warmStartServer("warmstrt")
  
  warm_start_act <- eventReactive(input$init_warmstrt, {
-   require(prob_values$data)
+   req(prob_values$data)
    
    return(eval_warm_start(d_list = warm_start(), prob_values$data))
    
@@ -662,12 +662,43 @@ shinyServer(function(input, output, session) {
       data$decision_pt <- rep(rep(c(1:decision_pts), each=n_participants), n_days)
       data$day <- rep(rep(1:n_days, each=n_participants), each=decision_pts)
       data$time_pt <- rep(rep(1:total), each=n_participants)
-      
+      data$pid <- rep(1:n_participants, total)
       
       updateSelectInput(
          session = session,
          inputId = 'calc_vars',
          choices = names(data)
+      )
+      
+      
+      updateSliderInput(
+        session = session,
+        inputId = "view_stages", 
+        min = 1,
+        value = c(1,3),
+        max=total,
+        "Choose stages to view"
+        )
+      
+      updateSelectInput(
+        session = session,
+        'sel_covariates',
+        label = "Choose Covariates",
+        choices = names(data)
+      )
+      
+      updateSelectInput(
+        session = session,
+        'sel_outcome',
+        label = "Choose Outcome",
+        choices = names(data)
+      )
+      
+      updateSelectInput(
+        session = session,
+        'sel_action',
+        label = "Specify actions",
+        choices = names(data)
       )
       
       variable_choices <- names(data)
@@ -688,9 +719,51 @@ shinyServer(function(input, output, session) {
       shinyjs::reset("data_choice")
       
       
+      # Show inputs that set up dynmaic treatment regime
+      shinyjs::show("setup_dynr")
+      
       removeModal()
       
    })
+   
+   # For debugging
+   observeEvent(input$browser,{
+     browser()
+   })
+   
+   
+   # get treatment regime 
+   dyn_treat <- eventReactive(input$sim_DLs, {
+     data       <- prob_values$data
+     covariates <- input$sel_covariates
+     outcome    <- input$sel_outcome
+     action     <- input$sel_action
+     n_stages   <- max(data$time_pt)
+     
+     #
+     data_dl <- format_data_dl(data, pid="pid", timeid="time_pt", outcome = outcome, covariates = c(covariates, action))
+     y <- as.matrix(get_dl_outcome(data_dl, outcome))
+     x <- as.matrix(get_dl_vars(data_dl, covariates))
+     a <- as.matrix(get_dl_vars(data_dl, action))
+     stages <- rep(1:n_stages, length(covariates))
+     
+     # ! need actions still 
+     dtr <- listdtr(y = y, x = x, a = a , stage.x = stages)
+     
+     dtr
+})
+   
+   output$dl_plot <- renderPlot({
+     req(input$view_stages)
+     stages = input$view_stages
+     stage_intv <- c(stages[1]:stages[2])
+     plot(dyn_treat(), stages = stage_intv)
+   })
+   
+   observeEvent(input$dply_dlplot, {
+     shinyjs::toggle("dl_display")
+   })
+    
    
    ## Open modal dialog to simulate data ##
    observeEvent(input$data_simulation, {
