@@ -48,10 +48,12 @@ shinyUI(fluidPage(
                                                             accept = ".csv"))
                                   )
                                 ),
+                         shinyjs::hidden(
+                           tags$div(id = "setup_dynr",
                          column(3,                                 
                                 set_html_breaks(3),
-                                shinyjs::hidden(
-                                  tags$div(id = "setup_dynr",
+                                
+                                 
                                            selectInput(
                                              'sel_covariates',
                                              label = "Choose Covariates",
@@ -70,9 +72,15 @@ shinyUI(fluidPage(
                                              label = "Specify actions",
                                              list(),
                                              multiple = FALSE
-                                           )
-                                           )
+                                           )    
                                 ),
+                          column(3,
+                                 set_html_breaks(3),
+                                 textInput("created_var_name", "Enter name for variable:"),
+                                 feature_gen_ui("var_transform"),
+                                 # actionButton("create_var", "Generate")
+                                 )
+                           )
                                 )
                          ),
                 tabPanel("Randomization",

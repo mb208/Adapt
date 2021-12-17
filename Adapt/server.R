@@ -8,15 +8,19 @@ library(shinydashboardPlus)
 
 library(listdtr)
 
-
+# Local scripts
 source("R/data_sim_modalDialog.R")
 source("R/utils_ui.R")
 source("R/utils_server.R")
 source("R/utils_latex_render.R")
-source("R/mod_warm_start.R")
 source("R/utils_data_proc.R")
 
+# Modules
+source("R/mod_warm_start.R")
+source("R/mod_warm_start.R")
+
 # Define server logic required to draw a histogram
+# remove shinyServe
 shinyServer(function(input, output, session) {
 
    ### Initialize values for probability calculation ###
@@ -79,7 +83,9 @@ shinyServer(function(input, output, session) {
     names(prob_values$data)
     
  })
+
  
+# Warm Start ----
  warm_start <- warmStartServer("warmstrt")
  
  warm_start_act <- eventReactive(input$init_warmstrt, {
@@ -183,7 +189,6 @@ shinyServer(function(input, output, session) {
       tex_params$tex_name <- tex_var_name(sim_var_name()) 
       
       total <- n_days*decision_pts
-      print(input$independ_dist)
       ## If new variable is independent (or first variable) then draw samples
       if (input$independ_dist == "Yes" || sim_params$num_vars == 1) {
          
@@ -726,15 +731,54 @@ shinyServer(function(input, output, session) {
       
    })
    
+   # Model Init ----
+   
+   # Module for feature generation
+  feature_gen <-  feature_gen_server("var_transform", data = reactive(prob_values$data))
+
+
    # For debugging
    observeEvent(input$browser,{
      browser()
    })
+
+   # Transform feature and update list choices for select inputs
+
+   observe({
+     # req(input$create_var)
+     # browser()
+     req(feature_gen$gen())
+
+     prob_values$data[input$created_var_name] <-  feature_gen$value()
+
+     updateSelectInput(
+       session = session,
+       'sel_covariates',
+       label = "Choose Covariates",
+       choices = names(prob_values$data)
+     )
+
+     updateSelectInput(
+       session = session,
+       'sel_outcome',
+       label = "Choose Outcome",
+       choices = names(prob_values$data)
+     )
+
+     updateSelectInput(
+       session = session,
+       'sel_action',
+       label = "Specify actions",
+       choices = names(prob_values$data)
+     )
+   })
+
+
    
    
    # get treatment regime 
    dyn_treat <- eventReactive(input$sim_DLs, {
-     data       <- prob_values$data
+     data       <- prob_values$data 
      covariates <- input$sel_covariates
      outcome    <- input$sel_outcome
      action     <- input$sel_action
@@ -916,11 +960,7 @@ shinyServer(function(input, output, session) {
       prob_values$agg_cnt = 0
       prob_values$probs =  numeric(length = nrow(prob_values$data))
       
-      # Remove newly generated variables from data set
-      
-      # ! old reset only removed newly generated variables / new reset removes entire data set
-      # prob_values$data <- prob_values$data %>% 
-      #    dplyr::select(-prob_values$generated_variables)
+      # Removes entire data set
       prob_values$data <- NULL
       
       prob_values$variable_choices <- NULL
@@ -969,3 +1009,63 @@ shinyServer(function(input, output, session) {
 
     }
 )
+
+
+
+## Tests 
+# observe({
+#   testing = T
+#   if (testing) {
+#     
+#     decision_pts <- 4
+#     n_participants <- 5
+#     n_days <- 5
+#     total <- n_days*decision_pts
+#     prob_values$data = data.frame(matrix(rnorm(total),ncol=3))
+#     
+#     
+#     data$decision_pt <- rep(rep(c(1:decision_pts), each=n_participants), n_days)
+#     data$day         <- rep(rep(1:n_days, each=n_participants), each=decision_pts)
+#     data$time_pt     <- rep(rep(1:total), each=n_participants)
+#     data$pid         <- rep(1:n_participants, total)
+#     
+#     updateSelectInput(
+#       session = session,
+#       inputId = 'calc_vars',
+#       choices = names(data)
+#     )
+#     
+#     
+#     updateSliderInput(
+#       session = session,
+#       inputId = "view_stages", 
+#       min     = 1,
+#       value   = c(1,3),
+#       max     = total,
+#       "Choose stages to view"
+#     )
+#     
+#     updateSelectInput(
+#       session = session,
+#       'sel_covariates',
+#       label = "Choose Covariates",
+#       choices = names(data)
+#     )
+#     
+#     updateSelectInput(
+#       session = session,
+#       'sel_outcome',
+#       label = "Choose Outcome",
+#       choices = names(data)
+#     )
+#     
+#     updateSelectInput(
+#       session = session,
+#       'sel_action',
+#       label = "Specify actions",
+#       choices = names(data)
+#     )
+#   }
+#   
+# })
+# 

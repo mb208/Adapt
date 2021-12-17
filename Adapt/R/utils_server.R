@@ -4,8 +4,7 @@
 # Location-Scale model computations ----
 n_ary_operator <- function(operator, var) {
   ## Make sure there are at least 2 variables
-  stopifnot(length(var) > 1)
-  
+
   ## Make sure operator is in list of operators
   # stopifnot(operator %in% c("+", "-", "x", "/"))
   
@@ -29,6 +28,29 @@ unary_operator <- function(operator, var, pow=1) {
   )
 }
 
+
+# Function for variable transformations
+
+variable_transform <- function(data, choices, operation,  input) {
+  
+  vars <- data[ , choices] 
+  # operation <- input$multi_operation
+  
+  # Logic changes if they choose weighted sum
+  if (operation == "weighted sum") {
+    
+    weights <- sapply(choices,
+                       function(x){
+                         input[[paste('wgt_',x, sep="")]]}
+                       )
+    
+    new_var <- as.matrix(vars) %*% as.matrix(weights)
+    
+  } else {
+    new_var <-  n_ary_operator(operation, vars)
+  }
+  return(new_var)
+}
 
 # Sample Input distribution  ----
 sample_dist <-  function(n, params) {

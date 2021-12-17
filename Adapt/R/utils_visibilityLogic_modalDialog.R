@@ -104,6 +104,5 @@ visibility_weighted_sum <- function(input) {
     } else {
       shinyjs::hide("weighted_sum_inputs")
     }
-    
   })
 }
