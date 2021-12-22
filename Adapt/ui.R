@@ -78,7 +78,7 @@ shinyUI(fluidPage(
                                  set_html_breaks(3),
                                  textInput("created_var_name", "Enter name for variable:"),
                                  feature_gen_ui("var_transform"),
-                                 # actionButton("create_var", "Generate")
+                                 actionButton("create_var", "Generate")
                                  )
                            )
                                 )

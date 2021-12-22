@@ -2,8 +2,8 @@ library(shiny)
 library(shinyjs)
 library(tidyverse)
 
-source("R/utils_server.R")
-source("R/mod_weighted_sum.R")
+# source("R/utils_server.R")
+# source("R/mod_weighted_sum.R")
 
 
 feature_gen_ui <- function(id) {
@@ -28,12 +28,12 @@ feature_gen_ui <- function(id) {
         onInitialize = I('function() { this.setValue(0); }')
       )
     ),
-    actionButton(ns("gen"), "Generate"),
+    # actionButton(ns("gen"), "Generate"),
     wgt_sum_ui(ns("weights")),
   )
 }
 
-feature_gen_server <- function(id, data) {
+feature_gen_server <- function(id, data, gen) {
   moduleServer(id,
                function(input, output, session) {
                  
@@ -59,30 +59,29 @@ feature_gen_server <- function(id, data) {
 
                  
                  myval <- reactive({
-                   head(data())
-                   if (input$gen) {
+                  
                      req(data())
-                     
+                     req(input$select_vars)
                      vars <- data()[, input$select_vars]
-                     
                      operation <- input$multi_operation
                      # Logic changes if they choose weighted sum
                      if (operation == "weighted sum") {
+                       
                        as.matrix(vars) %*% as.matrix(weights())
                        
                      } else {
                        n_ary_operator(operation, vars)
                      }
-                   } else {
-                     NULL
-                   }
                    
-                 })
+                 }) %>% 
+                   bindEvent(gen())
                  
-                 return(list(
-                   value = myval,
-                   gen = reactive(input$gen)
-                 )) 
+                 # return(list(
+                 #   value = myval,
+                 #   gen = reactive(input$gen)
+                 # )) 
+                 
+                 return(myval)
                  
                })
 }
@@ -92,7 +91,7 @@ feature_gen_server <- function(id, data) {
 # 
 # ui <- fluidPage(
 #   mainPanel(actionButton("browser", "browser"),
-#             # actionButton("create_var", "Generate"),
+#              actionButton("create_var", "Generate"),
 #             feature_gen_ui("var_transform")
 # 
 #   )
@@ -104,10 +103,11 @@ feature_gen_server <- function(id, data) {
 # 
 #   data <- data.frame(matrix(rnorm(300),ncol=3))
 #   choices <- feature_gen_server("var_transform",
-#                             data = reactive(data))
-#   
-#   observe(if (choices$gen()) print("hello"))
-#   
+#                             data = reactive(data),
+#                             gen = reactive(input$create_var))
+# 
+#   # observe(if (choices$gen()) print("hello"))
+# 
 # 
 # 
 #   observeEvent(input$browser,{

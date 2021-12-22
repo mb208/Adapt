@@ -22,6 +22,75 @@ source("R/mod_warm_start.R")
 # Define server logic required to draw a histogram
 # remove shinyServe
 shinyServer(function(input, output, session) {
+  
+  # Tests 
+ 
+  testing = T
+  if (testing) {
+    df <- reactiveVal()
+    
+    shinyjs::show("setup_dynr")
+    
+    # prob_values <- reactiveValues(data=NULL)
+    decision_pts <- 4
+    n_participants <- 5
+    n_days <- 5
+    total_pts <- n_days*decision_pts
+    total_obs <- n_participants*total_pts
+    
+    data <- data.frame(matrix(rnorm(total_obs*3),ncol=3))
+    
+    # prob_values$data <- data
+    
+    data$decision_pt <- rep(rep(c(1:decision_pts), each=n_participants), n_days)
+    data$day         <- rep(rep(1:n_days, each=n_participants), each=decision_pts)
+    data$time_pt     <- rep(rep(1:total_pts), each=n_participants)
+    data$pid         <- rep(1:n_participants, total_pts)
+    
+    df(data)
+    
+    
+    updateSelectInput(
+      session = session,
+      inputId = 'calc_vars',
+      choices = names(data)
+    )
+    
+    
+    updateSliderInput(
+      session = session,
+      inputId = "view_stages",
+      min     = 1,
+      value   = c(1,3),
+      max     = total_pts,
+      "Choose stages to view"
+    )
+    
+    updateSelectInput(
+      session = session,
+      'sel_covariates',
+      label = "Choose Covariates",
+      choices = names(data)
+    )
+    
+    updateSelectInput(
+      session = session,
+      'sel_outcome',
+      label = "Choose Outcome",
+      choices = names(data)
+    )
+    
+    updateSelectInput(
+      session = session,
+      'sel_action',
+      label = "Specify actions",
+      choices = names(data)
+    )
+    
+    
+  }
+  
+
 
    ### Initialize values for probability calculation ###
    prob_values <-  reactiveValues(
@@ -34,6 +103,8 @@ shinyServer(function(input, output, session) {
       data = NULL
 
    )
+   
+   data <- reactiveVal()
 
  
    observeEvent(input$browser2,{
@@ -734,8 +805,8 @@ shinyServer(function(input, output, session) {
    # Model Init ----
    
    # Module for feature generation
-  feature_gen <-  feature_gen_server("var_transform", data = reactive(prob_values$data))
-
+  # feature_gen <-  feature_gen_server("var_transform", data = reactive(prob_values$data))
+  
 
    # For debugging
    observeEvent(input$browser,{
@@ -743,34 +814,36 @@ shinyServer(function(input, output, session) {
    })
 
    # Transform feature and update list choices for select inputs
-
-   observe({
-     # req(input$create_var)
+   feature_gen <-  feature_gen_server("var_transform", data = df, gen = reactive(input$create_var))
+   
+   observeEvent(input$create_var, {
+     data = df()
+     data[input$created_var_name] <-  feature_gen()
+      
+     df(data)
      # browser()
-     req(feature_gen$gen())
-
-     prob_values$data[input$created_var_name] <-  feature_gen$value()
-
+     
      updateSelectInput(
        session = session,
        'sel_covariates',
        label = "Choose Covariates",
-       choices = names(prob_values$data)
+       choices = names(data)
      )
 
      updateSelectInput(
        session = session,
        'sel_outcome',
        label = "Choose Outcome",
-       choices = names(prob_values$data)
+       choices = names(data)
      )
 
      updateSelectInput(
        session = session,
        'sel_action',
        label = "Specify actions",
-       choices = names(prob_values$data)
+       choices = names(data)
      )
+     
    })
 
 
@@ -1006,66 +1079,15 @@ shinyServer(function(input, output, session) {
             title = "Treatment assignment throughout trial") +
        theme_classic()
    })
+   
+   
+   
+   
+   
 
     }
 )
 
 
 
-## Tests 
-# observe({
-#   testing = T
-#   if (testing) {
-#     
-#     decision_pts <- 4
-#     n_participants <- 5
-#     n_days <- 5
-#     total <- n_days*decision_pts
-#     prob_values$data = data.frame(matrix(rnorm(total),ncol=3))
-#     
-#     
-#     data$decision_pt <- rep(rep(c(1:decision_pts), each=n_participants), n_days)
-#     data$day         <- rep(rep(1:n_days, each=n_participants), each=decision_pts)
-#     data$time_pt     <- rep(rep(1:total), each=n_participants)
-#     data$pid         <- rep(1:n_participants, total)
-#     
-#     updateSelectInput(
-#       session = session,
-#       inputId = 'calc_vars',
-#       choices = names(data)
-#     )
-#     
-#     
-#     updateSliderInput(
-#       session = session,
-#       inputId = "view_stages", 
-#       min     = 1,
-#       value   = c(1,3),
-#       max     = total,
-#       "Choose stages to view"
-#     )
-#     
-#     updateSelectInput(
-#       session = session,
-#       'sel_covariates',
-#       label = "Choose Covariates",
-#       choices = names(data)
-#     )
-#     
-#     updateSelectInput(
-#       session = session,
-#       'sel_outcome',
-#       label = "Choose Outcome",
-#       choices = names(data)
-#     )
-#     
-#     updateSelectInput(
-#       session = session,
-#       'sel_action',
-#       label = "Specify actions",
-#       choices = names(data)
-#     )
-#   }
-#   
-# })
-# 
+
