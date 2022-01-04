@@ -35,7 +35,10 @@ wgt_sum_server <- function(id, var_names, multi_operation) {
                  
                  observe({
                    req(multi_operation())
-                   if (multi_operation() == "weighted sum") {
+                   if (length(var_names()) ==1) {
+                     shinyjs::hide("weighted_sum_inputs")
+                   }
+                   else if (multi_operation() == "weighted sum") {
                      shinyjs::show("weighted_sum_inputs")
                    } else {
                      shinyjs::hide("weighted_sum_inputs")

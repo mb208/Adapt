@@ -2,8 +2,8 @@ library(shiny)
 library(shinyjs)
 library(tidyverse)
 
-# source("R/utils_server.R")
-# source("R/mod_weighted_sum.R")
+source("R/utils_server.R")
+source("R/mod_weighted_sum.R")
 
 
 feature_gen_ui <- function(id) {
