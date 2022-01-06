@@ -5,16 +5,20 @@ library(DT)
 
 # source("R/utils_server.R")
 # source("R/mod_weighted_sum.R")
+# source("R/mod_operation_warning.R")
 # source("R/utils_ui.R")
 # source("R/utils_latex_render.R")
-# source("R/mod_operation_warning.R")
 
-calc_mean_UI <- function(id) {
+
+calc_variance_UI <- function(id) {
   ns <- NS(id)
-  tagList(h4(strong("Specify the mean")),
+  tagList(h4(strong("Specify the log variance")),
           column(
             2,
             tags$div(
+              h5("Click the button below if the variance does not depend on the data."),
+              actionButton(ns("indep_var"), "Idependent Variance"),
+              set_html_breaks(2),
               selectInput(
               inputId = ns('select_vars'),
               label = "Choose Variables",
@@ -46,7 +50,6 @@ calc_mean_UI <- function(id) {
               )
             ),
             hidden(numericInput(ns("power_val"), "Exponent Value:", value = 1)),
-            textOutput(ns("var_creation_warning")),
             operation_warning_UI(ns("operation_warning")),
             disabled(actionButton(ns("apply_operation"), "Apply Operations"))
           )
@@ -60,14 +63,15 @@ calc_mean_UI <- function(id) {
               includeScript("../www/dataTableUtils.js")
             )
             ,
-            actionButton(ns("calc_mean"), "Generate Mean")
+            set_html_breaks(1),
+            actionButton(ns("calc_var"), "Generate Variance")
             
   )
   )
 
 }
 
-calc_mean_Server <- function(id, data, expr_row){
+calc_variance_Server <- function(id, data, expr_row){
   moduleServer(id,
                function(input, output, session) {
                  ns <- session$ns
@@ -78,8 +82,8 @@ calc_mean_Server <- function(id, data, expr_row){
                    Name = character(0)
                  ))
 
-                 calculated_mean <- reactiveVal()
-                 mean_latex <- reactiveVal()
+                 calculated_variance <- reactiveVal()
+                 variance_latex <- reactiveVal()
 
                  var_cnt <- reactiveVal(1)
 
@@ -128,6 +132,7 @@ calc_mean_Server <- function(id, data, expr_row){
                    multi_operation = reactive(input$multi_operation)
                  )
                  
+                 # Return warning if operation/data combination returns NAs
                  operation_warning_Server("operation_warning", data = reactive(curr_data() %>%
                                                                                  dplyr::select(var_choices()[input$select_vars])),
                                           unary_operation = reactive(input$unary_operation),
@@ -274,7 +279,7 @@ calc_mean_Server <- function(id, data, expr_row){
                    } else {
                      shinyjs::hide("unary_operation")
                      shinyjs::show("multi_operation")
-                     reset_unary_operation(session, 'unary_operation') 
+                     reset_unary_operation(session, 'unary_operation')
                    }
                  })
 
@@ -289,24 +294,32 @@ calc_mean_Server <- function(id, data, expr_row){
                  # observeEvent(input$expr_row, {
                  observe({
                    if (is.null(expr_row())) {
-                     shinyjs::disable("calc_mean")
+                     shinyjs::disable("calc_var")
                    } else {
-                     shinyjs::enable("calc_mean")
+                     shinyjs::enable("calc_var")
                    }
-                   
                    })
-
-                 observeEvent(input$calc_mean, {
+           
+                
+                 observeEvent(input$indep_var, {
+                   calculated_variance(rep(1, dim(curr_data())[1]))
+                   variance_tex = render_tex_inline("\\sigma(X) = 1")
+                   variance_latex(variance_tex)
+                 })
+                 
+                 observeEvent(input$calc_var, {
                    # row_id <- as.numeric(input$expr_row) ## set in javascript code
                    row_id <- as.numeric(expr_row()) ## set in javascript code
 
                    # We extract the variable display name from the table using row_id
                    # Using this we get the column name from var_choices
                    # With this we can extract the appropriate column for the mean
-
+                   
                    col_id <- var_choices()[[expression_tbl()[row_id, "Name", drop=T]]]
-                   sim_mean <- curr_data()[[col_id]]
-                   calculated_mean(sim_mean)
+                   sim_var<- curr_data()[[col_id]]
+                   calculated_variance(sqrt(exp(sim_var))) # getting sd from log variance
+                   
+                   
 
                    ### Initialize variables for constructing conditional distribution
                    # Preivously used to reset parameters that were also used for variance calculations
@@ -315,25 +328,27 @@ calc_mean_Server <- function(id, data, expr_row){
 
 
                    # updateConditionalVars(session=session, names = names(sim_params$var_choices))
-                   mean_tex <- expr_list()[row_id] %>% unname() %>%
-                     str_c("\\mu(X) = ", ., collapse = "") %>%
-                     render_tex_inline()
-
+                   
+              
                    # Preivously used to reset parameters that were also used for variance latex
                    # tex_params <-  reset_expr_params(tex_params,
                    #                                  tex_params$var_names[names(sim_params$var_choices)]
                    # )
 
-
-                   mean_latex(mean_tex)
-
+                   variance_tex <- expr_list()[row_id] %>% unname() %>%
+                     str_c("\\sigma(X) = \\sqrt{e^{", ., "}}", collapse = "") %>%
+                     render_tex_inline()
+                   variance_latex(variance_tex)
+                   
+                   
+                  
                    shinyjs::reset("multi_operation")
                    shinyjs::reset("unary_operation")
 
                  })
 
-               return(list(calculated_mean = calculated_mean,
-                           mean_latex = mean_latex,
+               return(list(calculated_variance = calculated_variance,
+                           variance_latex = variance_latex,
                            expr_row = expr_row,
                            expr_list = expr_list))
 
@@ -352,7 +367,7 @@ ui <- fluidPage(
   useShinyjs(),
   withMathJax(),
   mainPanel(actionButton("browser", "browser"),
-            calc_mean_UI("calc_mean")
+            calc_variance_UI("calc_variance")
   )
 )
 
@@ -361,10 +376,7 @@ server <- function(input, output, session) {
 
   data <-data.frame(matrix(rnorm(300),ncol=3))
 
-  result <- calc_mean_Server("calc_mean", reactive(data), expr_row = reactive(input$expr_row))
-
-
-
+  result <- calc_variance_Server("calc_variance", reactive(data), expr_row = reactive(input$expr_row))
 
   observeEvent(input$browser,{
     browser()

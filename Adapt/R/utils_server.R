@@ -210,3 +210,33 @@ insert_variable_UI <- function(selector, where, id, label, ...) {
   )
 }
 
+# Reset multi/unary opeartions
+
+reset_unary_operation <- function(session, input_id) {
+  updateSelectizeInput(
+    session = session,
+    inputId = input_id,
+    label = "Apply operation to chosen variable",
+    selected = character(0),
+    options = list(
+      maxItems = 1,
+      placeholder = "select operation",
+      onInitialize = I('function() { this.setValue(0); }')
+    )
+  )
+}
+
+reset_multi_operation <- function(session, input_id) {
+  updateSelectizeInput(
+    session = session,
+    inputId = input_id,
+    label = "Apply operation to chosen variables",
+    selected = character(0),
+    options = list(
+      maxItems = 1,
+      placeholder = "select operation",
+      onInitialize = I('function() { this.setValue(0); }')
+    )
+  )
+}
+

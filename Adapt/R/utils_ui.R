@@ -1,6 +1,7 @@
 
 #### UI utilities ####
 #### Creating list of UIs for distribution inputs ####
+# Old
 get_dist_ui <- function(dist) {
   #### Returns Shiny Input 
   switch(
@@ -29,8 +30,36 @@ get_dist_ui <- function(dist) {
     
   )
 }
+# for module
+get_dist_input <- function(dist, id) {
+  #### Returns Shiny Input 
+  switch(
+    dist,
+    "gaussian" = tags$div(
+      h4(strong("Gaussian Parameterization")),
+      numericInput(paste0(id, "-mu"), "Mean", value = 0),
+      numericInput(paste0(id, "-sd"), "SD", value = 1)
+    ),
+    "binomial" = tags$div(
+      h4(strong("Binomial Parameterization")),
+      numericInput(paste0(id, "-n"), "Size", value = 5),
+      numericInput(paste0(id, "-p"), "Probability", value = .5)
+    ),
+    "gamma"   =  tags$div(
+      h4(strong("Gamma Parameterization")),
+      numericInput(paste0(id, "-s"), "Shape", value = 1),
+      numericInput(paste0(id, "-r"), "Rate", value =  1)
+    )
+    ,
+    "uniform"   =  tags$div(
+      h4(strong("Uniform Parameterization")),
+      numericInput(paste0(id, "-min"), "Min", value = 0),
+      numericInput(paste0(id, "-max"), "Max", value =  1)
+    )
+  )
+}
 
-
+# old version
 err_dist_ui <- function(dist) {
   
   switch (dist,
@@ -47,6 +76,24 @@ err_dist_ui <- function(dist) {
                          value = 1))
   )
 }
+
+err_dist_input <- function(dist, id) {
+  
+  switch (dist,
+          "gaussian" = tags$div(
+            h4(strong("Gaussian Error")),
+            numericInput(id, 
+                         "SD",
+                         value = 1)
+          ),
+          "double exponential" = tags$div(
+            h4(strong("Double Exponential Error")),
+            numericInput(id,
+                         "Scale",
+                         value = 1))
+  )
+}
+
 
 create_btn <- function(x) {
   paste0(

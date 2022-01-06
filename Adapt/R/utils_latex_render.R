@@ -137,6 +137,10 @@ bern_tex <- function(p) {
   str_interp("\\text{Bernoulli}(p = ${p})")
 }
 
+unif_tex <- function(Min, Max) {
+  str_interp("\\text{Uniform}(min = ${Min}, max = ${Max})")
+}
+
 binomial_tex <- function(size, p) {
   str_interp("\\text{Binomial}(n = ${size}, p = ${p})")
 }
