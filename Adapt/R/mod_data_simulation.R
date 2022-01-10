@@ -163,6 +163,20 @@ data_simulation_Server <- function(id) {
                  })
                  
                  observe({
+                   req(input$independ_dist)
+                   exists_variable <- !is.null(independent_variable$dist_id())
+                   invalid_name <- validate_variable_name(input$sim_var_name,
+                                                          names(simulated_data()))
+                   if (input$independ_dist == "Yes") {
+                     if (!invalid_name & exists_variable) {
+                       shinyjs::enable("gen_var")
+                     } else {
+                       shinyjs::disable("gen_var")
+                     }
+                   }
+                 })
+                 
+                 observe({
                    
                    if (num_vars()>1) {
                      shinyjs::show("independ_dist")
