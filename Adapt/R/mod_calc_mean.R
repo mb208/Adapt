@@ -57,17 +57,43 @@ calc_mean_UI <- function(id) {
             id = "loc_scale",
             div(
               withMathJax(DT::dataTableOutput(outputId = ns("loc_scale_tbl"))),
-              includeScript("../www/dataTableUtils.js")
+              tags$script(HTML(
+                str_interp("function set_row_id(clicked_id) {
+                    var el = document.getElementById(clicked_id);
+                    if (el.checked) {
+                        Shiny.setInputValue('${id}-expr_row',
+                                        clicked_id.split('_')[1],
+                                        {priority: 'event'});
+                    } else {
+                        Shiny.setInputValue('${id}-expr_row',
+                                        null,
+                                        {priority: 'event'});
+                    }
+                  
+                  };
+                function ckChange(el) {
+                    var ckName = document.getElementsByName(el.name);
+                    for (var i = 0, c; c = ckName[i]; i++) {
+                      c.disabled = !(!el.checked || c === el);
+                    }
+                  }
+                  
+                  function checkboxProperties(el) {
+                    set_row_id(el.id) ;
+                    ckChange(el) ;
+                  }")
+              ))
+              # includeScript("../www/dataTableUtils.js")
             )
             ,
-            actionButton(ns("calc_mean"), "Generate Mean")
+            shinyjs::disabled(actionButton(ns("calc_mean"), "Generate Mean"))
             
   )
   )
 
 }
 
-calc_mean_Server <- function(id, data, expr_row){
+calc_mean_Server <- function(id, data){
   moduleServer(id,
                function(input, output, session) {
                  ns <- session$ns
@@ -77,6 +103,7 @@ calc_mean_Server <- function(id, data, expr_row){
                    Expression = character(0),
                    Name = character(0)
                  ))
+                 
 
                  calculated_mean <- reactiveVal()
                  mean_latex <- reactiveVal()
@@ -244,6 +271,7 @@ calc_mean_Server <- function(id, data, expr_row){
 
                  # logic for displaying operation choices ----
                  observe({
+                   req(data())
                    var_selected <- input$select_vars
                    unary <- input$unary_operation == ""
                    multi <- input$multi_operation == ""
@@ -260,6 +288,7 @@ calc_mean_Server <- function(id, data, expr_row){
                  })
 
                  observe({
+                   req(data())
                    if (is.null(input$select_vars)) {
                      shinyjs::hide("multi_operation")
                      shinyjs::hide("unary_operation")
@@ -279,6 +308,7 @@ calc_mean_Server <- function(id, data, expr_row){
                  })
 
                  observe({
+                   req(data())
                    if (input$unary_operation == "^") {
                      shinyjs::show("power_val")
                    } else {
@@ -288,7 +318,8 @@ calc_mean_Server <- function(id, data, expr_row){
 
                  # observeEvent(input$expr_row, {
                  observe({
-                   if (is.null(expr_row())) {
+                   req(data())
+                   if (is.null(input$loc_scale_tbl_rows_selected)) {
                      shinyjs::disable("calc_mean")
                    } else {
                      shinyjs::enable("calc_mean")
@@ -298,7 +329,7 @@ calc_mean_Server <- function(id, data, expr_row){
 
                  observeEvent(input$calc_mean, {
                    # row_id <- as.numeric(input$expr_row) ## set in javascript code
-                   row_id <- as.numeric(expr_row()) ## set in javascript code
+                   row_id <- as.numeric(input$loc_scale_tbl_rows_selected) 
 
                    # We extract the variable display name from the table using row_id
                    # Using this we get the column name from var_choices
@@ -327,14 +358,13 @@ calc_mean_Server <- function(id, data, expr_row){
 
                    mean_latex(mean_tex)
 
-                   shinyjs::reset("multi_operation")
-                   shinyjs::reset("unary_operation")
+                   # shinyjs::reset("multi_operation")
+                   # shinyjs::reset("unary_operation")
 
                  })
 
                return(list(calculated_mean = calculated_mean,
                            mean_latex = mean_latex,
-                           expr_row = expr_row,
                            expr_list = expr_list))
 
                  }
@@ -361,7 +391,7 @@ server <- function(input, output, session) {
 
   data <-data.frame(matrix(rnorm(300),ncol=3))
 
-  result <- calc_mean_Server("calc_mean", reactive(data), expr_row = reactive(input$expr_row))
+  result <- calc_mean_Server("calc_mean", reactive(data))
 
 
 

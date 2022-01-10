@@ -10,7 +10,7 @@ library(DT)
 # source("R/utils_latex_render.R")
 
 
-calc_variance_UI <- function(id) {
+calc_sd_UI <- function(id) {
   ns <- NS(id)
   tagList(h4(strong("Specify the log variance")),
           column(
@@ -60,7 +60,33 @@ calc_variance_UI <- function(id) {
             id = "loc_scale",
             div(
               withMathJax(DT::dataTableOutput(outputId = ns("loc_scale_tbl"))),
-              includeScript("../www/dataTableUtils.js")
+              tags$script(HTML(
+                str_interp("function set_row_id(clicked_id) {
+                    var el = document.getElementById(clicked_id);
+                    if (el.checked) {
+                        Shiny.setInputValue('${id}-expr_row',
+                                        clicked_id.split('_')[1],
+                                        {priority: 'event'});
+                    } else {
+                        Shiny.setInputValue('${id}-expr_row',
+                                        null,
+                                        {priority: 'event'});
+                    }
+                  
+                  };
+                function ckChange(el) {
+                    var ckName = document.getElementsByName(el.name);
+                    for (var i = 0, c; c = ckName[i]; i++) {
+                      c.disabled = !(!el.checked || c === el);
+                    }
+                  }
+                  
+                  function checkboxProperties(el) {
+                    set_row_id(el.id) ;
+                    ckChange(el) ;
+                  }")
+              ))
+              #includeScript("../www/dataTableUtils.js")
             )
             ,
             set_html_breaks(1),
@@ -71,7 +97,7 @@ calc_variance_UI <- function(id) {
 
 }
 
-calc_variance_Server <- function(id, data, expr_row){
+calc_sd_Server <- function(id, data){
   moduleServer(id,
                function(input, output, session) {
                  ns <- session$ns
@@ -82,8 +108,8 @@ calc_variance_Server <- function(id, data, expr_row){
                    Name = character(0)
                  ))
 
-                 calculated_variance <- reactiveVal()
-                 variance_latex <- reactiveVal()
+                 calculated_sd <- reactiveVal()
+                 sd_latex <- reactiveVal()
 
                  var_cnt <- reactiveVal(1)
 
@@ -249,6 +275,7 @@ calc_variance_Server <- function(id, data, expr_row){
 
                  # logic for displaying operation choices ----
                  observe({
+                   req(data())
                    var_selected <- input$select_vars
                    unary <- input$unary_operation == ""
                    multi <- input$multi_operation == ""
@@ -265,6 +292,7 @@ calc_variance_Server <- function(id, data, expr_row){
                  })
 
                  observe({
+                   req(data())
                    if (is.null(input$select_vars)) {
                      shinyjs::hide("multi_operation")
                      shinyjs::hide("unary_operation")
@@ -284,6 +312,7 @@ calc_variance_Server <- function(id, data, expr_row){
                  })
 
                  observe({
+                   req(data())
                    if (input$unary_operation == "^") {
                      shinyjs::show("power_val")
                    } else {
@@ -293,7 +322,8 @@ calc_variance_Server <- function(id, data, expr_row){
 
                  # observeEvent(input$expr_row, {
                  observe({
-                   if (is.null(expr_row())) {
+                   req(data())
+                   if (is.null(input$loc_scale_tbl_rows_selected)) {
                      shinyjs::disable("calc_var")
                    } else {
                      shinyjs::enable("calc_var")
@@ -309,7 +339,7 @@ calc_variance_Server <- function(id, data, expr_row){
                  
                  observeEvent(input$calc_var, {
                    # row_id <- as.numeric(input$expr_row) ## set in javascript code
-                   row_id <- as.numeric(expr_row()) ## set in javascript code
+                   row_id <- as.numeric(input$loc_scale_tbl_rows_selected)
 
                    # We extract the variable display name from the table using row_id
                    # Using this we get the column name from var_choices
@@ -317,7 +347,7 @@ calc_variance_Server <- function(id, data, expr_row){
                    
                    col_id <- var_choices()[[expression_tbl()[row_id, "Name", drop=T]]]
                    sim_var<- curr_data()[[col_id]]
-                   calculated_variance(sqrt(exp(sim_var))) # getting sd from log variance
+                   calculated_sd(sqrt(exp(sim_var))) # getting sd from log variance
                    
                    
 
@@ -335,21 +365,21 @@ calc_variance_Server <- function(id, data, expr_row){
                    #                                  tex_params$var_names[names(sim_params$var_choices)]
                    # )
 
-                   variance_tex <- expr_list()[row_id] %>% unname() %>%
+                   sd_tex <- expr_list()[row_id] %>% unname() %>%
                      str_c("\\sigma(X) = \\sqrt{e^{", ., "}}", collapse = "") %>%
                      render_tex_inline()
-                   variance_latex(variance_tex)
+                   
+                   sd_latex(sd_tex)
                    
                    
                   
-                   shinyjs::reset("multi_operation")
-                   shinyjs::reset("unary_operation")
+                   # shinyjs::reset("multi_operation")
+                   # shinyjs::reset("unary_operation")
 
                  })
 
-               return(list(calculated_variance = calculated_variance,
-                           variance_latex = variance_latex,
-                           expr_row = expr_row,
+               return(list(calculated_sd = calculated_sd,
+                           sd_latex = sd_latex,
                            expr_list = expr_list))
 
                  }
@@ -367,7 +397,7 @@ ui <- fluidPage(
   useShinyjs(),
   withMathJax(),
   mainPanel(actionButton("browser", "browser"),
-            calc_variance_UI("calc_variance")
+            calc_sd_UI("calc_sd")
   )
 )
 
@@ -376,7 +406,7 @@ server <- function(input, output, session) {
 
   data <-data.frame(matrix(rnorm(300),ncol=3))
 
-  result <- calc_variance_Server("calc_variance", reactive(data), expr_row = reactive(input$expr_row))
+  result <- calc_sd_Server("calc_sd", reactive(data))
 
   observeEvent(input$browser,{
     browser()
