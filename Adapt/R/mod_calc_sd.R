@@ -86,7 +86,6 @@ calc_sd_UI <- function(id) {
                     ckChange(el) ;
                   }")
               ))
-              #includeScript("../www/dataTableUtils.js")
             )
             ,
             set_html_breaks(1),
@@ -134,8 +133,8 @@ calc_sd_Server <- function(id, data){
                    names(var_choices__) <- var_choices__
                    var_choices(var_choices__)
                    
-                   tex_var_names__ <- names(data())
-                   names(tex_var_names__) <- tex_var_names__
+                   tex_var_names__ <- map_chr(names(data()), ~ tex_var_name(.))
+                   names(tex_var_names__) <- var_choices__ # Latex name is indexed by dataset column name 
                    tex_var_names(tex_var_names__)
                    
                    expr_list(c())

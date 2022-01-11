@@ -83,7 +83,6 @@ calc_mean_UI <- function(id) {
                     ckChange(el) ;
                   }")
               ))
-              # includeScript("../www/dataTableUtils.js")
             )
             ,
             shinyjs::disabled(actionButton(ns("calc_mean"), "Generate Mean"))
@@ -128,8 +127,8 @@ calc_mean_Server <- function(id, data){
                    names(var_choices__) <- var_choices__
                    var_choices(var_choices__)
                    
-                   tex_var_names__ <- names(data())
-                   names(tex_var_names__) <- tex_var_names__
+                   tex_var_names__ <- map_chr(names(data()), ~ tex_var_name(.))
+                   names(tex_var_names__) <- var_choices__ # Latex name is indexed by dataset column name 
                    tex_var_names(tex_var_names__)
                    
                    expr_list(c())

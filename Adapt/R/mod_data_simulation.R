@@ -11,6 +11,7 @@ library(DT)
 # source("R/mod_error_dist.R")
 # source("R/mod_sample_distribution.R")
 # source("R/mod_operation_warning.R")
+# source("R/mod_downloadData.R")
 # source("R/mod_location_scale.R")
 
 
@@ -74,7 +75,7 @@ data_simulation_UI <- function(id) {
                   column(10,
                          DT::dataTableOutput(ns("sim_data")),
                          br(),
-                         downloadButton(ns("downloadSimData"), "Download Data")
+                         dataDownload_UI(ns("sim_data"))
                   ),
                   column(1)
                 ),
@@ -175,6 +176,7 @@ data_simulation_Server <- function(id) {
                    }
                  })
                  
+                 acc <- reactiveVal()
                  
                  # toggle gen_var button for dependent variable generation ----
                  observe({
@@ -244,6 +246,11 @@ data_simulation_Server <- function(id) {
                      sim_df$pid <- rep(1:input$n_participants, total)
 
                      simulated_data(sim_df)
+                     
+                     id = str_c("var-", num_vars(), collapse = "")
+                     
+                     insert_variable_UI(paste0("#", ns("variable-list")), where = "beforeEnd", id = ns(id),
+                                        label = h3(independent_variable$name_latex()))
 
                    } 
                    else if (input$independ_dist == "Yes") {
@@ -252,6 +259,11 @@ data_simulation_Server <- function(id) {
                      sim_df <- cbind(independent_variable$sampled_var(), sim_df)
                      colnames(sim_df)[1] <- sim_var_name()
                      simulated_data(sim_df)
+                     
+                     id = str_c("var-", num_vars(), collapse = "")
+                     
+                     insert_variable_UI(paste0("#", ns("variable-list")), where = "beforeEnd", id = ns(id),
+                                        label = h3(independent_variable$name_latex()))
 
                    } else {
                      sim_df <- simulated_data()
@@ -262,13 +274,39 @@ data_simulation_Server <- function(id) {
                      # sim_df[sim_var_name()] <- mu + sigma*error
                      
                      sim_df <- cbind(mu + sigma*error, sim_df)
-                     colnames(sim_df)[1] <- sim_var_name()  
-
-                     
-
+                     colnames(sim_df)[1] <- sim_var_name()
                      simulated_data(sim_df)
+                     
+                     # Generating latex/ui component
+                     mu_latex <- location_scale$mean_params$mean_latex()
+                     sigma_latex <- location_scale$sd_params$sd_latex()
+                     error_latex <- location_scale$error_params$error_latex()
+                     
+                     acc_id = str_c("accordion-", num_vars())
+                     
+                     acc_item <- tags$ul(
+                       tags$li(h4(mu_latex)),
+                       tags$li(h4(sigma_latex)),
+                       tags$li(h4(error_latex))
+                     )
+
+                     tex_header = render_tex_inline(str_c(
+                       tex_var_name(sim_var_name()),
+                       " = \\mu(X) + \\sigma(X) \\cdot \\epsilon",
+                       collapse = ""
+                     ))
+                     insert_accordion_list_item(paste0("#", ns("variable-list")), 
+                                                where = "beforeEnd", 
+                                                acc_id = ns(acc_id),
+                                                label = h3(tex_header),
+                                                acc_item
+                     )
+                     
+                     runjs(run_accordion_js(ns(acc_id)))
 
                    }
+                   
+                   runjs('MathJax.Hub.Queue(["Typeset",MathJax.Hub]);') # Render new latex
                   
                    # Refresh text input for variable name
                    shinyjs::reset("sim_var_name")
@@ -287,10 +325,23 @@ data_simulation_Server <- function(id) {
                      selected = character(0)
                    )
                    
-                   # Increment counter (inidicates number of variables generated)
+                   # Increment counter (indicates number of variables generated)
                    num_vars(num_vars() + 1)
                  }) %>%  
                    bindEvent(input$gen_var)
+                 
+                 output$sim_data <- DT::renderDataTable({
+                   req(simulated_data())
+                   datatable(simulated_data(),
+                             selection = 'none',
+                             options = list(dom="t",
+                                            autoWidth = TRUE
+                             ),
+                             rownames = F)
+                   
+                 })
+                 
+                 dataDownload_Server("sim_data", df = simulated_data, file_name = "simulated_data.csv")
                 
                  return(list(simulated_data, location_scale))
                  
@@ -307,11 +358,16 @@ source("mod_error_dist.R")
 source("mod_weighted_sum.R")
 source("mod_sample_distribution.R")
 source("mod_location_scale.R")
+source("mod_downloadData.R")
 source("mod_operation_warning.R")
 
 
 ui <- fluidPage(
-  useShinyjs(),
+  useShinyjs(),tags$head(
+    includeCSS("../www/accordion.css"), 
+    includeCSS("../www/style.css"), 
+    includeScript("../www/accordion.js") 
+  ),
   mainPanel(actionButton("browser", "browser"),
             data_simulation_UI("data_simulation")
   )
