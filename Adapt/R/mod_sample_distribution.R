@@ -179,59 +179,59 @@ distribution_sample_Server <- function(id, tex_name, n_participants, n_days, dec
                })
   
 }
-
-source("utils_server.R")
-source("utils_ui.R")
-source("utils_latex_render.R")
-source("mod_weighted_sum.R")
-
-ui <- fluidPage(
-  useShinyjs(),
-  fluidRow(
-    column(
-      3,
-      numericInput("n_participants",
-                   "Number of Participants",
-                   value = 20)
-    ),
-    column(
-      3,
-      numericInput("decision_pts",
-                   "Decision points per day",
-                   value = 5)
-    ),
-    column(
-      3,
-      numericInput("n_days",
-                   "Length of trial (in days)",
-                   value = 40)
-    )),
-  mainPanel(actionButton("browser", "browser"),
-            textInput("sim_var_name", "Enter name for variable:"),
-            distribution_sample_UI("sample_variable"),
-            actionButton("gen", "Gen Variable")
-  )
-)
-
-
-server <- function(input, output, session) {
-
-  data <-data.frame(matrix(rnorm(300),ncol=3))
-  sim_var_name <- reactive({
-    stringr::str_trim(input$sim_var_name)
-  })
-  
-  result <- distribution_sample_Server("sample_variable",
-                                       tex_name =sim_var_name,
-                                       n_participants = reactive(input$n_participants),
-                                       n_days = reactive(input$n_days),
-                                       decision_pts = reactive(input$decision_pts),
-                                       gen = reactive(input$gen))
-
-  observeEvent(input$browser,{
-    browser()
-  })
-
-}
-
-shinyApp(ui, server)
+# 
+# source("utils_server.R")
+# source("utils_ui.R")
+# source("utils_latex_render.R")
+# source("mod_weighted_sum.R")
+# 
+# ui <- fluidPage(
+#   useShinyjs(),
+#   fluidRow(
+#     column(
+#       3,
+#       numericInput("n_participants",
+#                    "Number of Participants",
+#                    value = 20)
+#     ),
+#     column(
+#       3,
+#       numericInput("decision_pts",
+#                    "Decision points per day",
+#                    value = 5)
+#     ),
+#     column(
+#       3,
+#       numericInput("n_days",
+#                    "Length of trial (in days)",
+#                    value = 40)
+#     )),
+#   mainPanel(actionButton("browser", "browser"),
+#             textInput("sim_var_name", "Enter name for variable:"),
+#             distribution_sample_UI("sample_variable"),
+#             actionButton("gen", "Gen Variable")
+#   )
+# )
+# 
+# 
+# server <- function(input, output, session) {
+# 
+#   data <-data.frame(matrix(rnorm(300),ncol=3))
+#   sim_var_name <- reactive({
+#     stringr::str_trim(input$sim_var_name)
+#   })
+#   
+#   result <- distribution_sample_Server("sample_variable",
+#                                        tex_name =sim_var_name,
+#                                        n_participants = reactive(input$n_participants),
+#                                        n_days = reactive(input$n_days),
+#                                        decision_pts = reactive(input$decision_pts),
+#                                        gen = reactive(input$gen))
+# 
+#   observeEvent(input$browser,{
+#     browser()
+#   })
+# 
+# }
+# 
+# shinyApp(ui, server)

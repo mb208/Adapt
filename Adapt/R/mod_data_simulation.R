@@ -134,11 +134,9 @@ data_simulation_Server <- function(id) {
                 
                  
                  
-                 # 
-                 # location_scale <- location_scale_Server("location_Scale", 
-                 #                                         df = simulated_data)
-                 # 
-                 # 
+
+                 location_scale <- location_scale_Server("location_Scale",
+                                                         df = simulated_data)
                  
                  
                  independent_variable <- distribution_sample_Server("sample_variable",
@@ -162,6 +160,7 @@ data_simulation_Server <- function(id) {
                    }
                  })
                  
+                 # toggle gen_var button for independent variable generation ----
                  observe({
                    req(input$independ_dist)
                    exists_variable <- !is.null(independent_variable$dist_id())
@@ -176,8 +175,33 @@ data_simulation_Server <- function(id) {
                    }
                  })
                  
+                 
+                 # toggle gen_var button for dependent variable generation ----
                  observe({
+                   req(input$independ_dist)
+                   invalid_name <- validate_variable_name(input$sim_var_name,
+                                                          names(simulated_data()))
                    
+                   null_mean <- is.null(location_scale$mean_params$calculated_mean())
+                   null_sd <- is.null(location_scale$sd_params$calculated_sd())
+                   null_error <- is.null(location_scale$error_params$simulated_error())
+
+                   missing_params = any(c(null_mean,
+                                          null_sd,
+                                          null_error))
+                   
+                   if (input$independ_dist == "No") {
+                     if (!invalid_name & !missing_params) {
+                       shinyjs::enable("gen_var")
+                     } else {
+                       shinyjs::disable("gen_var")
+                     }
+                   }
+                 })
+
+                 
+                 
+                 observe({
                    if (num_vars()>1) {
                      shinyjs::show("independ_dist")
                    } else {
@@ -207,42 +231,6 @@ data_simulation_Server <- function(id) {
                    }
                  })
                  
-                 
-                 # # toggle gen_var button for independent variable generation ----
-                 # observe({
-                 #   req(input$independ_dist)
-                 #   invalid_name <- validate_variable_name(input$sim_var_name,
-                 #                                          names(simulated_data()))
-                 #   
-                 #   empty_dist <- input$data_dist == ""
-                 #   if (input$independ_dist == "Yes") {
-                 #     if (!invalid_name & !empty_dist) {
-                 #       shinyjs::enable("gen_var")
-                 #     } else {
-                 #       shinyjs::disable("gen_var")
-                 #     }
-                 #   }
-                 # })
-                 
-                 # toggle gen_var button for dependent variable generation ----
-                 # observe({
-                 #   req(input$independ_dist)
-                 #   invalid_name <- validate_variable_name(input$sim_var_name,
-                 #                                          names(simulated_data()))
-                 #   
-                 #   missing_params = any(c(is.null(sim_mean()),
-                 #                          is.null(sim_sd()),
-                 #                          is.null(sim_error())))
-                 #   if (input$independ_dist == "No") {
-                 #     if (!invalid_name & !missing_params) {
-                 #       shinyjs::enable("gen_var")
-                 #     } else {
-                 #       shinyjs::disable("gen_var")
-                 #     }
-                 #   }
-                 # })
-                 # 
-                 
                  observe({
                    if (num_vars() == 1) {
 
@@ -258,26 +246,35 @@ data_simulation_Server <- function(id) {
                      simulated_data(sim_df)
 
                    } 
-                   # else if (input$independent_dist == "Yes") {
-                   #   sim_df <- simulated_data()
-                   #   sim_df[sim_var_name()] <- independent_variable$sampled_var()
-                   #   simulated_data(sim_df)
-                   # 
-                   # } else {
-                   #   sim_df <- simulated_data()
-                   # 
-                   #   mu <- location_scale$mean_params$calculated_mean()
-                   #   sigma <- location_scale$sd_params$calculated_sd()
-                   #   error <- location_scale$error_params$simulated_error()
-                   # 
-                   #   sim_df[sim_var_name()] <- mu + sigma*error
-                   # 
-                   #   simulated_data(sim_df)
-                   # 
-                   # }
+                   else if (input$independ_dist == "Yes") {
+                     sim_df <- simulated_data()
+                     # sim_df[sim_var_name()] <- independent_variable$sampled_var()
+                     sim_df <- cbind(independent_variable$sampled_var(), sim_df)
+                     colnames(sim_df)[1] <- sim_var_name()
+                     simulated_data(sim_df)
+
+                   } else {
+                     sim_df <- simulated_data()
+
+                     mu <- location_scale$mean_params$calculated_mean()
+                     sigma <- location_scale$sd_params$calculated_sd()
+                     error <- location_scale$error_params$simulated_error()
+                     # sim_df[sim_var_name()] <- mu + sigma*error
+                     
+                     sim_df <- cbind(mu + sigma*error, sim_df)
+                     colnames(sim_df)[1] <- sim_var_name()  
+
+                     
+
+                     simulated_data(sim_df)
+
+                   }
                   
                    # Refresh text input for variable name
                    shinyjs::reset("sim_var_name")
+                   shinyjs::disable("gen_var")
+                   
+                   shinyjs::reset("location_Scale")
                    
                    shinyjs::hide("indepent_variable")
                    shinyjs::hide("loc_scale_column")
@@ -295,7 +292,7 @@ data_simulation_Server <- function(id) {
                  }) %>%  
                    bindEvent(input$gen_var)
                 
-                 return(simulated_data)
+                 return(list(simulated_data, location_scale))
                  
                })
   
@@ -307,6 +304,7 @@ source("utils_latex_render.R")
 source("mod_calc_mean.R")
 source("mod_calc_sd.R")
 source("mod_error_dist.R")
+source("mod_weighted_sum.R")
 source("mod_sample_distribution.R")
 source("mod_location_scale.R")
 source("mod_operation_warning.R")

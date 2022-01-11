@@ -24,15 +24,21 @@ location_scale_UI <- function(id) {
 location_scale_Server <- function(id, df) {
   moduleServer(id,
                function(input, output, session) {
-                 ns <- session$ns
-                 step_rv <- reactiveVal(1)
+                 step_rv <- reactiveVal()
                  mean_params <- reactiveVal()
                  sd_params <- reactiveVal()
                  error_params <- reactiveVal()
                  
                  observe({
+                   names(df()) # forcing dependency on new data
+                   step_rv(1)
+                   
+                 })
+                 
+                 observe({
                    if (step_rv() == 1) {
                      shinyjs::disable("prev")
+                     shinyjs::enable("nxt")
                      shinyjs::show("mean")
                      shinyjs::hide("variance")
                      shinyjs::hide("error")
@@ -83,7 +89,8 @@ location_scale_Server <- function(id, df) {
 
                  return(list(mean_params=mean_params,
                              sd_params=sd_params,
-                             error_params=error_params))
+                             error_params=error_params,
+                             step_rv = step_rv))
 
 
                  
@@ -92,34 +99,34 @@ location_scale_Server <- function(id, df) {
 
 
 
-source("utils_server.R")
-source("utils_ui.R")
-source("utils_latex_render.R")
-source("mod_calc_mean.R")
-source("mod_calc_sd.R")
-source("mod_error_dist.R")
-source("mod_operation_warning.R")
-
-ui <- fluidPage(
-  useShinyjs(),
-  mainPanel(actionButton("browser", "browser"),
-            location_scale_UI("location_Scale"),
-            #actionButton("gen", "Gen Variable")
-  )
-)
-
-
-server <- function(input, output, session) {
-  
-  data <-data.frame(matrix(rnorm(300),ncol=3))
-  
-  result <- location_scale_Server("location_Scale", 
-                                  df = reactive(data))
-  
-  observeEvent(input$browser,{
-    browser()
-  })
-  
-}
-
-shinyApp(ui, server)
+# source("utils_server.R")
+# source("utils_ui.R")
+# source("utils_latex_render.R")
+# source("mod_calc_mean.R")
+# source("mod_calc_sd.R")
+# source("mod_error_dist.R")
+# source("mod_operation_warning.R")
+# 
+# ui <- fluidPage(
+#   useShinyjs(),
+#   mainPanel(actionButton("browser", "browser"),
+#             location_scale_UI("location_Scale"),
+#             #actionButton("gen", "Gen Variable")
+#   )
+# )
+# 
+# 
+# server <- function(input, output, session) {
+#   
+#   data <-data.frame(matrix(rnorm(300),ncol=3))
+#   
+#   result <- location_scale_Server("location_Scale", 
+#                                   df = reactive(data))
+#   
+#   observeEvent(input$browser,{
+#     browser()
+#   })
+#   
+# }
+# 
+# shinyApp(ui, server)

@@ -13,7 +13,7 @@ calc_mean_UI <- function(id) {
   ns <- NS(id)
   tagList(h4(strong("Specify the mean")),
           column(
-            2,
+            3,
             tags$div(
               selectInput(
               inputId = ns('select_vars'),
@@ -96,57 +96,54 @@ calc_mean_UI <- function(id) {
 calc_mean_Server <- function(id, data){
   moduleServer(id,
                function(input, output, session) {
-                 ns <- session$ns
-                 # Initialize expression table for representing expressions used to calculate mean ----
-                 expression_tbl <- reactiveVal(tibble(
-                   Select = character(0),
-                   Expression = character(0),
-                   Name = character(0)
-                 ))
-                 
-
+               
                  calculated_mean <- reactiveVal()
                  mean_latex <- reactiveVal()
-
-                 var_cnt <- reactiveVal(1)
-
+                 
+                 expression_tbl <- reactiveVal()
+                 var_cnt <- reactiveVal()
+                 
                  var_choices <- reactiveVal()
-
-                 observe({
-                   # Use `isolate()` here to break dependency with data(). So this operation is only down at onset.
-                   isolate({
-                     var_choices__ <- names(data())
-                     names(var_choices__) <- var_choices__
-                     var_choices(var_choices__)
-                   })
-                 })
-
+                 
                  tex_var_names <- reactiveVal()
-
-                 observe({
-                   # Use `isolate()` here to break dependency with data(). So this operation is only down at onset.
-                   isolate({
-                     tex_var_names__ <- names(data())
-                     names(tex_var_names__) <- tex_var_names__
-                     tex_var_names(tex_var_names__)
-                   })
-                 })
-
-                 expr_list <- reactiveVal(c())
-
+                 
+                 expr_list <- reactiveVal()
+                 
                  # create data set that will be modified throughout process
                  curr_data <- reactiveVal()
-                 observe(isolate(curr_data(data())))
+                 observe({
+                   # Init parameters for sd calculation
+                   curr_data(data())
+                   
+                   # Initialize expression table for representing expressions used to calculate mean
+                   expression_tbl(tibble(
+                       Select = character(0),
+                       Expression = character(0),
+                       Name = character(0)
+                     ))
+                   
+                   var_cnt(1)
+                   
+                   var_choices__ <- names(data())
+                   names(var_choices__) <- var_choices__
+                   var_choices(var_choices__)
+                   
+                   tex_var_names__ <- names(data())
+                   names(tex_var_names__) <- tex_var_names__
+                   tex_var_names(tex_var_names__)
+                   
+                   expr_list(c())
+                   
+                   calculated_mean(NULL)
+                   mean_latex(NULL)
+                   
+                   })
 
                  observe({
                    updateSelectizeInput(session = session,
                                         inputId = "select_vars",
                                         choices = names(var_choices()))
                  })
-
-               #! Note: Not sure if isolate is the way to go here. If we see that the
-               # variable choices etc are not updating with new iterations of calc mean
-               # then this is the place to start.
 
                 # call weights from weighted sum UI
                  weights <- wgt_sum_server(
@@ -155,10 +152,16 @@ calc_mean_Server <- function(id, data){
                    multi_operation = reactive(input$multi_operation)
                  )
                  
-                 operation_warning_Server("operation_warning", data = reactive(curr_data() %>%
-                                                                                 dplyr::select(var_choices()[input$select_vars])),
-                                          unary_operation = reactive(input$unary_operation),
-                                          exponent  = reactive(input$power_val))
+                 observe({
+                   req(input$select_vars)
+                   operation_warning_Server("operation_warning", 
+                                            data = reactive(curr_data() %>%
+                                                              dplyr::select(var_choices()[input$select_vars])),
+                                            unary_operation = reactive(input$unary_operation),
+                                            exponent  = reactive(input$power_val))
+                   
+                 })
+                 
 
                  observeEvent(input$apply_operation, {
                    curr_data__ <- curr_data()
@@ -365,7 +368,11 @@ calc_mean_Server <- function(id, data){
 
                return(list(calculated_mean = calculated_mean,
                            mean_latex = mean_latex,
-                           expr_list = expr_list))
+                           expr_list = expr_list,
+                           curr_data = curr_data,
+                           var_choices = var_choices,
+                           tex_var_names = tex_var_names,
+                           data = data))
 
                  }
   )

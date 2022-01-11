@@ -14,7 +14,7 @@ calc_sd_UI <- function(id) {
   ns <- NS(id)
   tagList(h4(strong("Specify the log variance")),
           column(
-            2,
+            3,
             tags$div(
               h5("Click the button below if the variance does not depend on the data."),
               actionButton(ns("indep_var"), "Idependent Variance"),
@@ -100,56 +100,57 @@ calc_sd_UI <- function(id) {
 calc_sd_Server <- function(id, data){
   moduleServer(id,
                function(input, output, session) {
-                 ns <- session$ns
-                 # Initialize expression table for representing expressions used to calculate mean ----
-                 expression_tbl <- reactiveVal(tibble(
-                   Select = character(0),
-                   Expression = character(0),
-                   Name = character(0)
-                 ))
-
+                 
                  calculated_sd <- reactiveVal()
                  sd_latex <- reactiveVal()
-
-                 var_cnt <- reactiveVal(1)
-
+                 
+                 
+                 expression_tbl <- reactiveVal()
+                 var_cnt <- reactiveVal()
+                 
                  var_choices <- reactiveVal()
-
-                 observe({
-                   # Use `isolate()` here to break dependency with data(). So this operation is only down at onset.
-                   isolate({
-                     var_choices__ <- names(data())
-                     names(var_choices__) <- var_choices__
-                     var_choices(var_choices__)
-                   })
-                 })
-
+                 
                  tex_var_names <- reactiveVal()
-
-                 observe({
-                   # Use `isolate()` here to break dependency with data(). So this operation is only down at onset.
-                   isolate({
-                     tex_var_names__ <- names(data())
-                     names(tex_var_names__) <- tex_var_names__
-                     tex_var_names(tex_var_names__)
-                   })
-                 })
-
-                 expr_list <- reactiveVal(c())
-
+                 
+                 expr_list <- reactiveVal()
+                 
                  # create data set that will be modified throughout process
                  curr_data <- reactiveVal()
-                 observe(isolate(curr_data(data())))
+                 observe({
+                   # Init parameters for sd calculation
+                   
+                   curr_data(data())
+                   
+                   # Initialize expression table for representing expressions used to calculate mean
+                   expression_tbl(tibble(
+                     Select = character(0),
+                     Expression = character(0),
+                     Name = character(0)
+                   ))
+                   
+                   var_cnt(1)
+                   
+                   var_choices__ <- names(data())
+                   names(var_choices__) <- var_choices__
+                   var_choices(var_choices__)
+                   
+                   tex_var_names__ <- names(data())
+                   names(tex_var_names__) <- tex_var_names__
+                   tex_var_names(tex_var_names__)
+                   
+                   expr_list(c())
+                   
+                   calculated_sd(NULL)
+                   sd_latex(NULL)
+                   
+                 })
+                 
 
                  observe({
                    updateSelectizeInput(session = session,
                                         inputId = "select_vars",
                                         choices = names(var_choices()))
                  })
-
-               #! Note: Not sure if isolate is the way to go here. If we see that the
-               # variable choices etc are not updating with new iterations of calc mean
-               # then this is the place to start.
 
                 # call weights from weighted sum UI
                  weights <- wgt_sum_server(
@@ -332,9 +333,9 @@ calc_sd_Server <- function(id, data){
            
                 
                  observeEvent(input$indep_var, {
-                   calculated_variance(rep(1, dim(curr_data())[1]))
-                   variance_tex = render_tex_inline("\\sigma(X) = 1")
-                   variance_latex(variance_tex)
+                   calculated_sd(rep(1, dim(curr_data())[1]))
+                   sd_tex = render_tex_inline("\\sigma(X) = 1")
+                   sd_latex(sd_tex)
                  })
                  
                  observeEvent(input$calc_var, {
@@ -387,31 +388,31 @@ calc_sd_Server <- function(id, data){
 }
 
 
-source("utils_server.R")
-source("utils_ui.R")
-source("utils_latex_render.R")
-source("mod_weighted_sum.R")
-source("mod_operation_warning.R")
-
-ui <- fluidPage(
-  useShinyjs(),
-  withMathJax(),
-  mainPanel(actionButton("browser", "browser"),
-            calc_sd_UI("calc_sd")
-  )
-)
-
-
-server <- function(input, output, session) {
-
-  data <-data.frame(matrix(rnorm(300),ncol=3))
-
-  result <- calc_sd_Server("calc_sd", reactive(data))
-
-  observeEvent(input$browser,{
-    browser()
-  })
-
-}
-
-shinyApp(ui, server)
+# source("utils_server.R")
+# source("utils_ui.R")
+# source("utils_latex_render.R")
+# source("mod_weighted_sum.R")
+# source("mod_operation_warning.R")
+# 
+# ui <- fluidPage(
+#   useShinyjs(),
+#   withMathJax(),
+#   mainPanel(actionButton("browser", "browser"),
+#             calc_sd_UI("calc_sd")
+#   )
+# )
+# 
+# 
+# server <- function(input, output, session) {
+# 
+#   data <-data.frame(matrix(rnorm(300),ncol=3))
+# 
+#   result <- calc_sd_Server("calc_sd", reactive(data))
+# 
+#   observeEvent(input$browser,{
+#     browser()
+#   })
+# 
+# }
+# 
+# shinyApp(ui, server)
