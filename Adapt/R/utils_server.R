@@ -52,27 +52,6 @@ variable_transform <- function(data, choices, operation,  input) {
   return(new_var)
 }
 
-# Sample Input distribution  ----
-sample_dist <-  function(n, params) {
-  switch(
-    input$data_dist,
-    "Gaussian"  = rnorm(n,
-                        mean = params$guass_mu,
-                        sd = params$guass_sd), 
-    "Bernoulli" =  as.integer(rbernoulli(n,
-                                         p = params$bern_p)), 
-    
-    "Binomial"  = rbinom(n,
-                         size = params$bin_n,
-                         p    = params$bin_p),
-    
-    "Gamma"     = rgamma(n,
-                         shape = input$gamma_s,
-                         rate = input$gamma_r)
-    )
-}
-
-
 # Update Simulate Parameters ----
 
 update_sim_params <- function(sim_params, cond_dist_step, num_vars, sim_data, mean=NULL, log_variance=NULL, error=NULL) {
