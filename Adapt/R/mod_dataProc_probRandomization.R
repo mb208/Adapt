@@ -26,22 +26,21 @@ dataProc_Server <- function(id, X) {
                function(input, output, session) {
                  
                  # Need to fix this in original weighted_sum module
-                 operation <- reactive(if (str_detect(input$data_agg, "weighted")) {"weighted sum"} else { NULL})
-                 
+                 # operation <- reactive(if (str_detect(input$data_agg, "weighted")) {"weighted sum"} else { NULL})
+                 operation <- reactive(input$data_agg)
                  var_names <- reactive(names(X()))
                  
                  # call weights from weighted sum UI
                  weights <- wgt_sum_server(
                    "weights",
                    var_names = var_names,
-                   multi_operation = operation
+                   multi_operation = reactive(input$data_agg)
                  )
                  
                  #### Data Aggregation ####
                  aggregations <- reactive({
                    # if weighted average chosen
                    if (input$data_agg == "weighted average") {
-                     
                      apply(X(),
                            MARGIN = 1,
                            function(x) {
@@ -58,7 +57,7 @@ dataProc_Server <- function(id, X) {
                  })
                  
                  
-                 return(list(aggregations, operation))
+                 return(list(agg = aggregations))
                }
   )
 }

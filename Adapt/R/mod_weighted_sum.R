@@ -17,10 +17,17 @@ wgt_sum_server <- function(id, var_names, multi_operation) {
                  
                 
                  ns <- session$ns
-                 
+                 show_weights <- reactive({
+                   show_weights <- FALSE
+                   if (!is.null(multi_operation())) {
+                     show_weights = str_detect(multi_operation(), "weighted")
+                   }
+                   
+                   show_weights
+                 })
                  ### Get weights if weighted sum chosen
                  output$weighted_sum_inputs <- renderUI({
-                   req(multi_operation() == "weighted sum")
+                   req(show_weights())
                    tags$div(h4(strong("Assign weights:")),
                             purrr::map(
                               var_names(),
@@ -38,7 +45,7 @@ wgt_sum_server <- function(id, var_names, multi_operation) {
                    if (length(var_names()) ==1) {
                      shinyjs::hide("weighted_sum_inputs")
                    }
-                   else if (multi_operation() == "weighted sum") {
+                   else if (show_weights()) {
                      shinyjs::show("weighted_sum_inputs")
                    } else {
                      shinyjs::hide("weighted_sum_inputs")
@@ -91,15 +98,15 @@ wgt_sum_server <- function(id, var_names, multi_operation) {
 # server <- function(input, output, session) {
 # 
 #   data <- data.frame(matrix(rnorm(300),ncol=3))
-#   updateSelectizeInput(session = session, 
+#   updateSelectizeInput(session = session,
 #                        inputId = "select_vars",
 #                        choices = names(data))
-#   
+# 
 #   weights <- wgt_sum_server("var_transform",
 #                             var_names = reactive(input$select_vars),
 #                             multi_operation = reactive(input$multi_operation))
 # 
-#   
+# 
 #   observeEvent(input$browser,{
 #     browser()
 #   })
