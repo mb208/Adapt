@@ -3,16 +3,16 @@ library(shinyjs)
 library(tidyverse)
 library(DT)
 
-# source("R/utils_server.R")
-# source("R/utils_ui.R")
-# source("R/utils_latex_render.R")
-# source("R/mod_calc_mean.R")
-# source("R/mod_calc_sd.R")
-# source("R/mod_error_dist.R")
-# source("R/mod_sample_distribution.R")
-# source("R/mod_operation_warning.R")
-# source("R/mod_downloadData.R")
-# source("R/mod_location_scale.R")
+source("R/utils_server.R")
+source("R/utils_ui.R")
+source("R/utils_latex_render.R")
+source("R/mod_calc_mean.R")
+source("R/mod_calc_sd.R")
+source("R/mod_error_dist.R")
+source("R/mod_sample_distribution.R")
+source("R/mod_operation_warning.R")
+source("R/mod_downloadData.R")
+source("R/mod_location_scale.R")
 
 
 data_simulation_UI <- function(id) {
@@ -343,45 +343,45 @@ data_simulation_Server <- function(id) {
                  
                  dataDownload_Server("sim_data", df = simulated_data, file_name = "simulated_data.csv")
                 
-                 return(list(simulated_data, location_scale))
+                 return(simulated_data)
                  
                })
   
 }
 
-source("utils_server.R")
-source("utils_ui.R")
-source("utils_latex_render.R")
-source("mod_calc_mean.R")
-source("mod_calc_sd.R")
-source("mod_error_dist.R")
-source("mod_weighted_sum.R")
-source("mod_sample_distribution.R")
-source("mod_location_scale.R")
-source("mod_downloadData.R")
-source("mod_operation_warning.R")
+# source("utils_server.R")
+# source("utils_ui.R")
+# source("utils_latex_render.R")
+# source("mod_calc_mean.R")
+# source("mod_calc_sd.R")
+# source("mod_error_dist.R")
+# source("mod_weighted_sum.R")
+# source("mod_sample_distribution.R")
+# source("mod_location_scale.R")
+# source("mod_downloadData.R")
+# source("mod_operation_warning.R")
 
 
-ui <- fluidPage(
-  useShinyjs(),tags$head(
-    includeCSS("../www/accordion.css"), 
-    includeCSS("../www/style.css"), 
-    includeScript("../www/accordion.js") 
-  ),
-  mainPanel(actionButton("browser", "browser"),
-            data_simulation_UI("data_simulation")
-  )
-)
-
-
-server <- function(input, output, session) {
-
-  result <- data_simulation_Server("data_simulation")
-  
-  observeEvent(input$browser,{
-    browser()
-  })
-  
-}
-
-shinyApp(ui, server)
+# ui <- fluidPage(
+#   useShinyjs(),tags$head(
+#     includeCSS("./www/accordion.css"), 
+#     includeCSS("./www/style.css"), 
+#     includeScript("./www/accordion.js") 
+#   ),
+#   mainPanel(actionButton("browser", "browser"),
+#             data_simulation_UI("data_simulation")
+#   )
+# )
+# 
+# 
+# server <- function(input, output, session) {
+# 
+#   result <- data_simulation_Server("data_simulation")
+#   
+#   observeEvent(input$browser,{
+#     browser()
+#   })
+#   
+# }
+# 
+# shinyApp(ui, server)

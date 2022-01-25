@@ -6,6 +6,7 @@ library(shinyjs)
 
 source("R/utils_ui.R")
 source("R/mod_warm_start.R")
+source("R/mod_randomizationProb.R")
 
 
 
@@ -45,15 +46,15 @@ shinyUI(fluidPage(
                                   br(),
                                   shinyjs::hidden(fileInput("file_info", 
                                                             "Upload File",
-                                                            accept = ".csv"))
+                                                            accept = ".csv")),
+                                  h4("To clear the data that was either uploaded or simulated click the following button"),
+                                  actionButton("reset", "reset")
                                   )
                                 ),
                          shinyjs::hidden(
                            tags$div(id = "setup_dynr",
                          column(3,                                 
                                 set_html_breaks(3),
-                                
-                                 
                                            selectInput(
                                              'sel_covariates',
                                              label = "Choose Covariates",
@@ -84,7 +85,7 @@ shinyUI(fluidPage(
                                 )
                          ),
                 tabPanel("Randomization",
-                         source(file.path("R", "ui_Randomization.R"),  local = TRUE)$value
+                         randomizationProb_UI("randomize")
                          ),
                 tabPanel("Treatment Regime",
                          column(3,

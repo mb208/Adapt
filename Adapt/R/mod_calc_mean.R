@@ -3,11 +3,11 @@ library(shinyjs)
 library(tidyverse)
 library(DT)
 
-# source("R/utils_server.R")
-# source("R/mod_weighted_sum.R")
-# source("R/utils_ui.R")
-# source("R/utils_latex_render.R")
-# source("R/mod_operation_warning.R")
+source("R/utils_server.R")
+source("R/mod_weighted_sum.R")
+source("R/utils_ui.R")
+source("R/utils_latex_render.R")
+source("R/mod_operation_warning.R")
 
 calc_mean_UI <- function(id) {
   ns <- NS(id)
@@ -378,34 +378,34 @@ calc_mean_Server <- function(id, data){
 }
 
 
-source("utils_server.R")
-source("utils_ui.R")
-source("utils_latex_render.R")
-source("mod_weighted_sum.R")
-source("mod_operation_warning.R")
-
-ui <- fluidPage(
-  useShinyjs(),
-  withMathJax(),
-  mainPanel(actionButton("browser", "browser"),
-            calc_mean_UI("calc_mean")
-  )
-)
-
-
-server <- function(input, output, session) {
-
-  data <-data.frame(matrix(rnorm(300),ncol=3))
-
-  result <- calc_mean_Server("calc_mean", reactive(data))
-
-
-
-
-  observeEvent(input$browser,{
-    browser()
-  })
-
-}
-
-shinyApp(ui, server)
+# source("utils_server.R")
+# source("utils_ui.R")
+# source("utils_latex_render.R")
+# source("mod_weighted_sum.R")
+# source("mod_operation_warning.R")
+# 
+# ui <- fluidPage(
+#   useShinyjs(),
+#   withMathJax(),
+#   mainPanel(actionButton("browser", "browser"),
+#             calc_mean_UI("calc_mean")
+#   )
+# )
+# 
+# 
+# server <- function(input, output, session) {
+# 
+#   data <-data.frame(matrix(rnorm(300),ncol=3))
+# 
+#   result <- calc_mean_Server("calc_mean", reactive(data))
+# 
+# 
+# 
+# 
+#   observeEvent(input$browser,{
+#     browser()
+#   })
+# 
+# }
+# 
+# shinyApp(ui, server)

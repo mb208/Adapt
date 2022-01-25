@@ -23,7 +23,8 @@ source("R/mod_warm_start.R")
 # remove shinyServer!
 shinyServer(function(input, output, session) {
   
-  # Tests 
+ # Reactive Values used throughout the app 
+  data_for_sim <- reactiveVal()
   
   
   ### Initialize values for probability calculation ###
@@ -61,32 +62,10 @@ shinyServer(function(input, output, session) {
    
       
     observeEvent(input$file_info, {
-   
-       data <- upload_data()
-       updateSelectInput(
-       session = session,
-       inputId = 'calc_vars',
-       choices = names(data)
-       )
+       data_for_sim(upload_data())
+      })
 
-    
-    variable_choices <- names(data)
-    names(variable_choices) <- variable_choices
 
-    prob_values$probs = numeric(length = nrow(data))
-    prob_values$treatment = numeric(length = nrow(data))
-    prob_values$variable_choices = variable_choices
-    prob_values$data = data
-
- })
-
- output$vars <- renderText({
-    
-    names(prob_values$data)
-    
- })
-
- 
 # Warm Start ----
  warm_start <- warmStartServer("warmstrt")
  
@@ -826,192 +805,9 @@ shinyServer(function(input, output, session) {
    
    
    ##### Calculations for Randomization Design ####
-   
-   covariates <- reactive({
-      
-      prob_values$data %>% 
-         select(prob_values$variable_choices[input$calc_vars])
-      
-   })
-   
-   # Here we use the input var
-  var_wgts <- reactive({
-    sapply(input$calc_vars, function(x){
-      input[[paste('wgt_',x)]]
-    })
-  })
-  
-  
-  
-  # Request Input weights for weighted average #
-   output$weighted_avg <- renderUI({
-     tags$div(
-       h4(strong("Assign weights:")),
-       purrr::map(input$calc_vars,
-                  ~ numericInput(inputId = paste('wgt_',.x) ,
-                                 label = .x, 
-                                 value = round(1/length(input$calc_vars), 3))
-       )
-     )
-   })
-     
-
-   
-   #### Data Processing ####
-   
-   #### Data Aggregation ####
-   aggregations <- reactive({
-     # if weighted average chosen
-     if (input$data_agg == "weighted average") {
-   
-       apply(covariates(),
-             MARGIN = 1,
-             function(x) {
-               data_agg[[input$data_agg]](x, var_wgts())
-             }
-       )
-     }
-      
-     # Aggregate data according to selected transformation
-     apply(covariates(),
-           MARGIN = 1,
-           data_agg[[input$data_agg]])
-     
-   })
-   
-   ### Get Probabilities ###
-   probabilities <- reactive({
-     
-     # Apply selected transformation to calculate probability
-     prob_maps[[input$prob_map]](aggregations())
-     
-   })
-   
-
-   # Update Inputs
-   observeEvent(input$apply_aggs, {
-      
-      ### Update probabilities each time a sequence is applied ###
-      prob_values$agg_cnt = prob_values$agg_cnt + 1 
-      prob_values$probs = (prob_values$probs + probabilities()) / prob_values$agg_cnt 
-      
-      # Add new variable 
-      new_var_name = paste0('z', prob_values$agg_cnt, '__')
-      new_var_disp = paste0('Synthetic ', prob_values$agg_cnt)
-      
-      # Update data frame 
-      prob_values$data[new_var_name] <- prob_values$probs
-      
-      # Add Construct Variable to input choices
-      prob_values$variable_choices[new_var_disp] <- new_var_name
-      
-      # Save new variables to be removed on reset
-      prob_values$generated_variables <- c(prob_values$generated_variables, new_var_name)
-      
-      insertUI("table tbody",
-               where = "beforeEnd",
-               ui = tags$tr(class = "agg-seq",
-                            tags$td(align = "center", 
-                                    style = "word-wrap: break-word;",
-                                    paste0(input$calc_vars, collapse = ", ")),
-                            tags$td(align = "center", input$data_agg),
-                            tags$td(align = "center", input$prob_map),
-                            tags$td(align = "center", new_var_disp)
-               )
-      )
-     
-      # Reset select inputs 
-      updateSelectInput(
-         session = session,
-         inputId = 'calc_vars',
-         choices = names(prob_values$variable_choices))
-      
-      updateSelectizeInput(
-         session = session,
-         inputId = 'data_agg',
-         choices = list("sum",
-                        "average",
-                        "weighted average"),
-         options = list(
-            maxItems = 1,
-            placeholder = "select data transformation",
-            onInitialize = I('function() { this.setValue(0); }')
-         ) 
-      )
-      
-      updateSelectizeInput(
-         session = session,
-         inputId = 'prob_map',
-         choices = list("expit", 
-                        "tanh", 
-                        "arctan"),
-         options = list(maxItems = 1,
-                        placeholder = "select probability generation",
-                        onInitialize = I('function() { this.setValue(0); }')) 
-      )
-      
-   })
-
-   
-   observeEvent(input$get_prob, {
-     prob_values$treatment = rbernoulli(n = length(prob_values$probs),
-                                        p = prob_values$probs)
-     
-   })
-   
-   
-   # Reset environment ----
-   observeEvent(input$reset, {
-      
-      prob_values$agg_cnt = 0
-      prob_values$probs =  numeric(length = nrow(prob_values$data))
-      
-      # Removes entire data set
-      prob_values$data <- NULL
-      
-      prob_values$variable_choices <- NULL
-      # names(prob_values$variable_choices) <- prob_values$variable_choices
-      prob_values$generated_variables <-  c()
-      
-      update_sim_params(sim_params, cond_dist_step = 0, num_vars = 1, sim_data = NULL)
-      
-      updateSelectInput(
-         session = session,
-         inputId = 'calc_vars',
-         choices = "")
-      
-      shinyjs::reset("data_choice")
-      
- 
-   })
-   
-   ### Assign treatment to participants ###
-   output$selected <-  renderTable({head(upload_data())})
-   output$cnt <-  renderText({ prob_values$agg_cnt })
-
-   output$prob_plot <-  renderPlot({
-     req(input$apply_aggs)
-     data.frame(p =  prob_values$probs) %>%
-       ggplot(aes(x=p)) +
-       geom_histogram() +
-       labs(x = "Ranomization Probabilities", y = "Count",
-            title = "Histogram of Randomiztion Probabilities") +
-       theme_classic()
-   })
-
-   # #### Treatment assignment plots ####
-   output$assignment_plot <-  renderPlot({
-  
-     req(input$get_prob)
-     data.frame(treatment =  prob_values$treatment, time = prob_values$data$time_pt) %>%
-        group_by(time) %>% 
-        summarise(perc_treatment = mean(treatment, na.rm=T)) %>%
-       ggplot(aes(x=time, y = perc_treatment)) +
-       geom_line(color="red") +
-       labs(x = "Decision point in trial", y = "(%) of participants given treatment",
-            title = "Treatment assignment throughout trial") +
-       theme_classic()
-   })
+   data_randomized <- randomizationProb_Server("randomize",
+                                      X = data_for_sim,
+                                      reset = reactive(input$reset))
    
    
    

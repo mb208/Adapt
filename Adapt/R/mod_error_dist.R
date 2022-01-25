@@ -3,9 +3,9 @@ library(shinyjs)
 library(tidyverse)
 library(DT)
 
-# source("R/utils_server.R")
-# source("R/utils_ui.R")
-# source("R/utils_latex_render.R")
+source("R/utils_server.R")
+source("R/utils_ui.R")
+source("R/utils_latex_render.R")
 
 
 error_dist_UI <- function(id) {
@@ -90,9 +90,9 @@ error_dist_Server <- function(id, n_obs) {
                })
 }
 
-source("utils_server.R")
-source("utils_ui.R")
-source("utils_latex_render.R")
+# source("utils_server.R")
+# source("utils_ui.R")
+# source("utils_latex_render.R")
 
 
 # ui <- fluidPage(

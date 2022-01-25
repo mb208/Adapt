@@ -2,7 +2,7 @@ library(shiny)
 library(shinyjs)
 library(tidyverse)
 
-# library("R/utils_server.R")
+source("R/utils_server.R")
 
 
 prob_map_UI <- function(id) {
@@ -41,7 +41,7 @@ prob_map_Server <- function(id, X) {
   )
 }
 
-source("utils_server.R")
+# source("utils_server.R")
 
 # ui <- fluidPage(
 #   mainPanel(actionButton("browser", "browser"),

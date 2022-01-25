@@ -4,7 +4,11 @@ library(tidyverse)
 library(shinydashboard)
 
 
-# library("R/utils_server.R")
+source("R/utils_server.R")
+source("R/utils_ui.R")
+source("R/mod_weighted_sum.R")
+source("R/mod_dataProc_randomizationProb.R")
+source("R/mod_probMap_randomizationProb.R")
 
 randomizationProb_UI <- function(id) {
   ns <- NS(id)
@@ -78,7 +82,7 @@ randomizationProb_UI <- function(id) {
 }
 
 
-randomizationProb_Server <- function(id, X, reset=NULL) {
+randomizationProb_Server <- function(id, X, reset) {
   moduleServer(id,
                function(input, output, session){
                  ns <- session$ns
@@ -216,6 +220,11 @@ randomizationProb_Server <- function(id, X, reset=NULL) {
                      theme_classic()
                  })
                  
+                 observe({
+                   removeUI(selector = ".agg-seq", multiple = T, immediate = T)
+                 }) %>% 
+                   bindEvent(reset())
+                 
                  return(list(agg = agg$agg_name,
                              prob_map=curr_probs$prob_map,
                              var_cnt = var_cnt,
@@ -227,33 +236,35 @@ randomizationProb_Server <- function(id, X, reset=NULL) {
                })
 }
 
-source("utils_server.R")
-source("utils_ui.R")
-
-source("mod_weighted_sum.R")
-source("mod_dataProc_randomizationProb.R")
-source("mod_probMap_randomizationProb.R")
-
-
-ui <- fluidPage(
-  useShinyjs(),
-  mainPanel(actionButton("browser", "browser"),
-            randomizationProb_UI("randomize")
-
-  )
-
-)
-
-
-server <- function(input, output, session) {
-
-  data <- cbind(data.frame(matrix(rnorm(300),ncol=3)), time_pt = c(1:100))
-  result <- randomizationProb_Server("randomize",
-                            X = reactive(data))
-  observeEvent(input$browser,{
-    browser()
-  })
-
-}
-
-shinyApp(ui, server)
+# source("utils_server.R")
+# source("utils_ui.R")
+# 
+# source("mod_weighted_sum.R")
+# source("mod_dataProc_randomizationProb.R")
+# source("mod_probMap_randomizationProb.R")
+# 
+# 
+# ui <- fluidPage(
+#   useShinyjs(),
+#   mainPanel(actionButton("browser", "browser"),
+#             randomizationProb_UI("randomize"),
+#             actionButton("reset", "reset")
+# 
+#   )
+# 
+# )
+# 
+# 
+# server <- function(input, output, session) {
+# 
+#   data <- cbind(data.frame(matrix(rnorm(300),ncol=3)), time_pt = c(1:100))
+#   result <- randomizationProb_Server("randomize",
+#                             X = reactive(data),
+#                             reset = reactive(input$reset))
+#   observeEvent(input$browser,{
+#     browser()
+#   })
+# 
+# }
+# 
+# shinyApp(ui, server)

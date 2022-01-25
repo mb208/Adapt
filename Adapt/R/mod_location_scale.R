@@ -1,10 +1,14 @@
-# source("R/utils_server.R")
-# source("R/utils_ui.R")
-# source("R/utils_latex_render.R")
-# source("R/mod_calc_mean.R")
-# source("R/mod_calc_variance.R.R")
-# source("R/mod_error_dist.R")
-# source("R/mod_operation_warning.R")
+library(shiny)
+library(shinyjs)
+library(tidyverse)
+
+source("R/utils_server.R")
+source("R/utils_ui.R")
+source("R/utils_latex_render.R")
+source("R/mod_calc_mean.R")
+source("R/mod_calc_sd.R")
+source("R/mod_error_dist.R")
+source("R/mod_operation_warning.R")
 
 
 location_scale_UI <- function(id) {
