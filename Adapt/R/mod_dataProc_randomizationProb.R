@@ -3,20 +3,22 @@ library(shinyjs)
 library(tidyverse)
 
 # library("R/utils_server.R")
+# source("R/mod_weighted_sum.R")
 
 dataProc_UI <- function(id) {
   ns <- NS(id)
   tagList(
-  selectizeInput(ns('data_agg'), 
-                 label = "",
-                 list("sum",
-                      "weighted average"),
-                 options = list(maxItems = 1,
-                                placeholder = "select data transformation",
-                                onInitialize = I('function() { this.setValue(0); }')) 
-  ),
-  wgt_sum_ui(ns("weights")),
-  )
+    h4('Choose Data Transformation'),
+    selectizeInput(ns('data_agg'), 
+                   label = "",
+                   list("sum",
+                        "weighted average"),
+                   options = list(maxItems = 1,
+                                  placeholder = "select data transformation",
+                                  onInitialize = I('function() { this.setValue(0); }')) 
+                   ),
+    wgt_sum_ui(ns("weights")),
+    )
 }
 
 
@@ -57,34 +59,35 @@ dataProc_Server <- function(id, X) {
                  })
                  
                  
-                 return(list(agg = aggregations))
+                 return(list(data = aggregations,
+                             agg_name = reactive(input$data_agg)))
                }
   )
 }
 
 
 
-source("utils_server.R")
-source("mod_weighted_sum.R")
-
-ui <- fluidPage(
-  mainPanel(actionButton("browser", "browser"),
-            dataProc_UI("data_proc")
-
-  )
-
-)
-
-
-server <- function(input, output, session) {
-
-  data <- data.frame(matrix(rnorm(300),ncol=3))
-  result <- dataProc_Server("data_proc",
-                            X = reactive(data))
-  observeEvent(input$browser,{
-    browser()
-  })
-
-}
-
-shinyApp(ui, server)
+# source("utils_server.R")
+# source("mod_weighted_sum.R")
+# 
+# ui <- fluidPage(
+#   mainPanel(actionButton("browser", "browser"),
+#             dataProc_UI("data_proc")
+# 
+#   )
+# 
+# )
+# 
+# 
+# server <- function(input, output, session) {
+# 
+#   data <- data.frame(matrix(rnorm(300),ncol=3))
+#   result <- dataProc_Server("data_proc",
+#                             X = reactive(data))
+#   observeEvent(input$browser,{
+#     browser()
+#   })
+# 
+# }
+# 
+# shinyApp(ui, server)
