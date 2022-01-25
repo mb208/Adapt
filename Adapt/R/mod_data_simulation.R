@@ -3,9 +3,13 @@ library(shinyjs)
 library(tidyverse)
 library(DT)
 
+# User files
 source("R/utils_server.R")
 source("R/utils_ui.R")
 source("R/utils_latex_render.R")
+
+# Modules
+source("R/mod_weighted_sum.R")
 source("R/mod_calc_mean.R")
 source("R/mod_calc_sd.R")
 source("R/mod_error_dist.R")
@@ -24,19 +28,19 @@ data_simulation_UI <- function(id) {
         3,
         numericInput(ns("n_participants"),
                      "Number of Participants",
-                     value = 20)
+                     value = 100)
       ),
       column(
         3,
         numericInput(ns("decision_pts"),
                      "Decision points per day",
-                     value = 5)
+                     value = 4)
       ),
       column(
         3,
         numericInput(ns("n_days"),
                      "Length of trial (in days)",
-                     value = 40)
+                     value = 3)
       ),
       column(1,
              offset = 2
@@ -150,6 +154,7 @@ data_simulation_Server <- function(id) {
                  # Logic enabling different UI components for relevant stage
                  
                  observe({
+                   req(input$sim_var_name)
                    req(num_vars()==1)
                    exists_variable <- !is.null(independent_variable$dist_id())
                    invalid_name <- validate_variable_name(input$sim_var_name,
@@ -212,6 +217,7 @@ data_simulation_Server <- function(id) {
                  })
                  
                  observe({
+                   req(input$sim_var_name)
                    cond_varname <- validate_variable_name(sim_var_name(), names(simulated_data()))
                    if (!cond_varname) {
                      shinyjs::enable("independ_dist")
@@ -233,7 +239,9 @@ data_simulation_Server <- function(id) {
                    }
                  })
                  
+                 # This event is bound to input$gen_var
                  observe({
+                   req(input$sim_var_name)
                    if (num_vars() == 1) {
 
                      sim_df <- data.frame(independent_variable$sampled_var())

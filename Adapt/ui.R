@@ -6,6 +6,7 @@ library(shinyjs)
 
 source("R/utils_ui.R")
 source("R/mod_warm_start.R")
+source("R/mod_weighted_sum.R")
 source("R/mod_randomizationProb.R")
 
 
@@ -34,7 +35,6 @@ shinyUI(fluidPage(
     # Application title
     titlePanel("Dynamic Treatment Regimes"),
     actionButton("browser", "browser"),
-    tags$script("$('#browser').hide();"),
     tabsetPanel(type = "tabs",
                 tabPanel("Main",
                          column(3,
