@@ -105,44 +105,44 @@ shinyServer(function(input, output, session) {
       
       total <- max(data$time_pt)
       
-      updateSelectInput(
-         session = session,
-         inputId = 'calc_vars',
-         choices = names(data)
-      )
-      
-      updateSliderInput(
-        session = session,
-        inputId = "view_stages", 
-        min = 1,
-        value = c(1,3),
-        max=total,
-        "Choose stages to view"
-        )
-      
-      updateSelectInput(
-        session = session,
-        'sel_covariates',
-        label = "Choose Covariates",
-        selected = character(0),
-        choices = names(data)
-      )
-      
-      updateSelectInput(
-        session = session,
-        'sel_outcome',
-        label = "Choose Outcome",
-        selected = character(0),
-        choices = names(data)
-      )
-      
-      updateSelectInput(
-        session = session,
-        'sel_action',
-        label = "Specify actions",
-        selected = character(0),
-        choices = names(data)
-      )
+      # updateSelectInput(
+      #    session = session,
+      #    inputId = 'calc_vars',
+      #    choices = names(data)
+      # )
+      # 
+      # updateSliderInput(
+      #   session = session,
+      #   inputId = "view_stages", 
+      #   min = 1,
+      #   value = c(1,3),
+      #   max=total,
+      #   "Choose stages to view"
+      #   )
+      # 
+      # updateSelectInput(
+      #   session = session,
+      #   'sel_covariates',
+      #   label = "Choose Covariates",
+      #   selected = character(0),
+      #   choices = names(data)
+      # )
+      # 
+      # updateSelectInput(
+      #   session = session,
+      #   'sel_outcome',
+      #   label = "Choose Outcome",
+      #   selected = character(0),
+      #   choices = names(data)
+      # )
+      # 
+      # updateSelectInput(
+      #   session = session,
+      #   'sel_action',
+      #   label = "Specify actions",
+      #   selected = character(0),
+      #   choices = names(data)
+      # )
       
       # Update data set used for dynamic treatment regime
       data_for_sim(data)
@@ -154,6 +154,8 @@ shinyServer(function(input, output, session) {
       
    })
    
+   
+   
    # Model Init ----
    
    # For debugging
@@ -164,39 +166,97 @@ shinyServer(function(input, output, session) {
    # Transform feature and update list choices for select inputs
    feature_gen <-  feature_gen_server("var_transform", data = data_for_sim, gen = reactive(input$create_var))
 
+   observe({
+     name <- input$created_var_name
+     if (name!="") {
+       shinyjs::enable("create_var")
+     } else {
+       shinyjs::disable("create_var")
+     }
+   })
+
   observeEvent(input$create_var, {
     
      data = data_for_sim()
      data[input$created_var_name] <-  feature_gen()
      
+     # updateSelectInput(
+     #   session = session,
+     #   'sel_covariates',
+     #   label = "Choose Covariates",
+     #   choices = names(data)
+     # )
+     # 
+     # updateSelectInput(
+     #   session = session,
+     #   'sel_outcome',
+     #   label = "Choose Outcome",
+     #   choices = names(data)
+     # )
+     # 
+     # updateSelectInput(
+     #   session = session,
+     #   'sel_action',
+     #   label = "Specify actions",
+     #   choices = names(data)
+     # )
+     # 
+     # Update dataset so it includes newly created variable
+     data_for_sim(data)
+     shinyjs::reset(id = "created_var_name")
+   })
+
+
+   observe({
+     input$reset
+     data <- data_for_sim()
+     if (is.null(data)) {
+       total = 1
+       choices = list()
+     } else {
+       total <- max(data$time_pt)
+       choices = names(data)
+     }
+     updateSelectInput(
+       session = session,
+       inputId = 'calc_vars',
+       choices = choices
+     )
+     
+     updateSliderInput(
+       session = session,
+       inputId = "view_stages", 
+       min = 1,
+       value = c(1,3),
+       max=total,
+       "Choose stages to view"
+     )
+     
      updateSelectInput(
        session = session,
        'sel_covariates',
        label = "Choose Covariates",
-       choices = names(data)
+       selected = character(0),
+       choices = choices
      )
-
+     
      updateSelectInput(
        session = session,
        'sel_outcome',
        label = "Choose Outcome",
-       choices = names(data)
+       selected = character(0),
+       choices = choices
      )
-
+     
      updateSelectInput(
        session = session,
        'sel_action',
        label = "Specify actions",
-       choices = names(data)
+       selected = character(0),
+       choices = choices
      )
      
-     # Update dataset so it includes newly created variable
-     data_for_sim(data)
-     
    })
-
-
-   
    
    # get treatment regime 
    dyn_treat <- eventReactive(input$sim_DLs, {
@@ -244,6 +304,11 @@ shinyServer(function(input, output, session) {
    data_randomized <- randomizationProb_Server("randomize",
                                       X = data_for_sim,
                                       reset = reactive(input$reset))
+   
+   observeEvent(input$reset, {
+     data_for_sim(NULL)
+   })
+   
     }
 )
 

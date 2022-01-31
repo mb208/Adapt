@@ -44,9 +44,14 @@ feature_gen_server <- function(id, data, gen) {
                  })
 
                  observe({
+                   if (is.null(data())) {
+                     choices = ""
+                   } else {
+                     choices = names(data())
+                   }
                    updateSelectizeInput(session = session,
                                         inputId = "select_vars",
-                                        choices = names(data()))
+                                        choices = choices)
                  })
                  
                  

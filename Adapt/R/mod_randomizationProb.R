@@ -4,11 +4,11 @@ library(tidyverse)
 library(shinydashboard)
 
 
-source("R/utils_server.R")
-source("R/utils_ui.R")
-source("R/mod_weighted_sum.R")
-source("R/mod_dataProc_randomizationProb.R")
-source("R/mod_probMap_randomizationProb.R")
+# source("R/utils_server.R")
+# source("R/utils_ui.R")
+# source("R/mod_weighted_sum.R")
+# source("R/mod_dataProc_randomizationProb.R")
+# source("R/mod_probMap_randomizationProb.R")
 
 randomizationProb_UI <- function(id) {
   ns <- NS(id)
@@ -97,18 +97,35 @@ randomizationProb_Server <- function(id, X, reset) {
                  treatment <- reactiveVal()
 
                  observe({
+                   reset()
                    curr_data(X())
                    return_data(X())
                    
                    var_cnt(0)
                    r_probs(0)
 
-                   var_choices__ <- names(X())
-                   names(var_choices__) <- var_choices__
-                   var_choices(var_choices__)
+                   # var_choices__ <- names(X())
+                   # names(var_choices__) <- var_choices__
+                   # var_choices(var_choices__)
+                   if (is.null(names(X()))) {
+                     var_choices__ = ""
+                     names(var_choices__) <- ""
+                     var_choices(var_choices__)
+                     }
+                   else {
+                     var_choices__ = names(X())
+                     names(var_choices__) <- var_choices__
+                     var_choices(var_choices__)
+                   }
                  })
 
                 observe({
+                  # var_cnt()
+                  # if (is.null(var_choices())) {
+                  #   choices <- list()
+                  # } else {
+                  #   choices <- names(var_choices())
+                  # }
                   updateSelectInput(
                     session = session,
                     inputId = 'calc_vars',
@@ -222,6 +239,7 @@ randomizationProb_Server <- function(id, X, reset) {
                  
                  observe({
                    removeUI(selector = ".agg-seq", multiple = T, immediate = T)
+                   runjs("$('.asn-plt').css('visibility', 'hidden')")
                  }) %>% 
                    bindEvent(reset())
                  
@@ -242,8 +260,8 @@ randomizationProb_Server <- function(id, X, reset) {
 # source("mod_weighted_sum.R")
 # source("mod_dataProc_randomizationProb.R")
 # source("mod_probMap_randomizationProb.R")
-# 
-# 
+
+
 # ui <- fluidPage(
 #   useShinyjs(),
 #   mainPanel(actionButton("browser", "browser"),
