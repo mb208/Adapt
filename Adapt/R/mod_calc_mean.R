@@ -3,11 +3,11 @@ library(shinyjs)
 library(tidyverse)
 library(DT)
 
-source("R/utils_server.R")
-source("R/mod_weighted_sum.R")
-source("R/utils_ui.R")
-source("R/utils_latex_render.R")
-source("R/mod_operation_warning.R")
+# source("R/utils_server.R")
+# source("R/mod_weighted_sum.R")
+# source("R/utils_ui.R")
+# source("R/utils_latex_render.R")
+# source("R/mod_operation_warning.R")
 
 calc_mean_UI <- function(id) {
   ns <- NS(id)
@@ -38,14 +38,26 @@ calc_mean_UI <- function(id) {
             selectizeInput(
               inputId = ns('unary_operation'),
               label = "Apply operation to chosen variable",
-              c("exp", "ln", "^", "None"),
+              c("exp", "ln", "^", "lag", "None"),
               options = list(
                 maxItems = 1,
                 placeholder = "select operation",
                 onInitialize = I('function() { this.setValue(0); }')
               )
             ),
+            set_html_breaks(2),
             hidden(numericInput(ns("power_val"), "Exponent Value:", value = 1)),
+            hidden(tags$div(id = ns("lag_inputs"), style = "display:inline-block",
+                            fluidRow(
+                              column(6, numericInput(ns("lag_val"), "Lag Value", value = 1)),
+                              column(6,  selectizeInput(
+                                inputId = ns('lag_unit'),
+                                label = "Lag Time Unit",
+                                c("decision point" = "time_pt", "day" = "day"),
+                                options = list(maxItems = 1))
+                              ))
+                            )
+                   ),
             textOutput(ns("var_creation_warning")),
             operation_warning_UI(ns("operation_warning")),
             disabled(actionButton(ns("apply_operation"), "Apply Operations"))
@@ -56,35 +68,37 @@ calc_mean_UI <- function(id) {
             6,
             id = "loc_scale",
             div(
+              h4("Click on a row to select an expression for the mean"),
               withMathJax(DT::dataTableOutput(outputId = ns("loc_scale_tbl"))),
-              tags$script(HTML(
-                str_interp("function set_row_id(clicked_id) {
-                    var el = document.getElementById(clicked_id);
-                    if (el.checked) {
-                        Shiny.setInputValue('${id}-expr_row',
-                                        clicked_id.split('_')[1],
-                                        {priority: 'event'});
-                    } else {
-                        Shiny.setInputValue('${id}-expr_row',
-                                        null,
-                                        {priority: 'event'});
-                    }
-                  
-                  };
-                function ckChange(el) {
-                    var ckName = document.getElementsByName(el.name);
-                    for (var i = 0, c; c = ckName[i]; i++) {
-                      c.disabled = !(!el.checked || c === el);
-                    }
-                  }
-                  
-                  function checkboxProperties(el) {
-                    set_row_id(el.id) ;
-                    ckChange(el) ;
-                  }")
-              ))
+              # tags$script(HTML(
+              #   str_interp("function set_row_id(clicked_id) {
+              #       var el = document.getElementById(clicked_id);
+              #       if (el.checked) {
+              #           Shiny.setInputValue('${id}-expr_row',
+              #                           clicked_id.split('_')[1],
+              #                           {priority: 'event'});
+              #       } else {
+              #           Shiny.setInputValue('${id}-expr_row',
+              #                           null,
+              #                           {priority: 'event'});
+              #       }
+              #     
+              #     };
+              #   function ckChange(el) {
+              #       var ckName = document.getElementsByName(el.name);
+              #       for (var i = 0, c; c = ckName[i]; i++) {
+              #         c.disabled = !(!el.checked || c === el);
+              #       }
+              #     }
+              #     
+              #     function checkboxProperties(el) {
+              #       set_row_id(el.id) ;
+              #       ckChange(el) ;
+              #     }")
+              # ))
             )
             ,
+            set_html_breaks(1),
             shinyjs::disabled(actionButton(ns("calc_mean"), "Generate Mean"))
             
   )
@@ -116,7 +130,7 @@ calc_mean_Server <- function(id, data){
                    
                    # Initialize expression table for representing expressions used to calculate mean
                    expression_tbl(tibble(
-                       Select = character(0),
+                       #Select = character(0),
                        Expression = character(0),
                        Name = character(0)
                      ))
@@ -164,8 +178,9 @@ calc_mean_Server <- function(id, data){
 
                  observeEvent(input$apply_operation, {
                    curr_data__ <- curr_data()
+                   varnames <- input$select_vars
                    vars <- curr_data__ %>%
-                     dplyr::select(var_choices()[input$select_vars])
+                     dplyr::select(var_choices()[varnames])
 
                    new_var_name <- paste(
                      paste0("mean", "__", sep = ""),
@@ -174,10 +189,12 @@ calc_mean_Server <- function(id, data){
 
                    weights <- NULL
                    pow <- NULL
+                   lag_n <- NULL
+                   lag_unit <- NULL
 
                    display_name <- paste("expression", var_cnt(), collapse = " ")
 
-                   if (length(input$select_vars) == 1) {
+                   if (length(varnames) == 1) {
 
                      operation_name = input$unary_operation
 
@@ -188,15 +205,33 @@ calc_mean_Server <- function(id, data){
 
                        new_var <- unary_operator(operation_name,
                                                  vars,
-                                                 pow)
+                                                 pow = pow)
 
+                     } else if (operation_name=="lag") {
+                       
+                       lag_n = input$lag_val
+                       lag_unit <- input$lag_unit
+                       n_day = max(curr_data__$decision_pt)
+                       
+                       if (lag_unit=="day") {
+                         n <- lag_n*n_day
+                       } else {
+                         lag_unit <- "dec"
+                         n <- lag_n
+                       }
+                       
+                       new_var <- curr_data__ %>% 
+                         group_by(pid) %>% 
+                         mutate(lag = dplyr::lag(!!as.name(varnames), n)) %>% 
+                         pull(lag)
+                       
                      } else {
 
                        new_var <- unary_operator(operation_name,
                                                  vars)
                      }
 
-                   } else if (length(input$select_vars) > 1) {
+                   } else if (length(varnames) > 1) {
 
                      operation_name = input$multi_operation
                      # Logic changes if they choose weighted sum
@@ -229,7 +264,8 @@ calc_mean_Server <- function(id, data){
                    tex_var_names__ <- tex_var_names()
                    tex_vars <- tex_var_names__[input$select_vars]
 
-                   tex <- func_to_tex(operation_name, X = tex_vars, pow = pow, weights = weights())
+                   tex <- func_to_tex(operation_name, X = tex_vars, pow = pow,
+                                      n = lag_n, unit = lag_unit, weights = weights())
 
 
                    tex_var_names__[display_name] <- tex
@@ -240,7 +276,7 @@ calc_mean_Server <- function(id, data){
                    expression_tbl <- expression_tbl()  %>%
                      dplyr::bind_rows(
                        tibble(
-                         Select = create_checkbox(var_cnt()),
+                         #Select = create_checkbox(var_cnt()),
                          Expression = gen_MathJax_html(tex),
                          Name = display_name
                        )
@@ -315,6 +351,15 @@ calc_mean_Server <- function(id, data){
                      shinyjs::show("power_val")
                    } else {
                      shinyjs::hide("power_val")
+                   }
+                 })
+                 
+                 observe({
+                   req(data())
+                   if (input$unary_operation == "lag") {
+                     shinyjs::show("lag_inputs")
+                   } else {
+                     shinyjs::hide("lag_inputs")
                    }
                  })
 

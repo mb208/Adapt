@@ -24,7 +24,7 @@ con_mariadb_UI <- function(id) {
           textInput(ns("password"), "Password:"),
           textInput(ns("dbname"), "Database:"),
           textInput(ns("host"), "Host:"),
-          set_html_breaks(2),
+          set_html_breaks(1),
           shinyjs::disabled(actionButton(ns("conn"), "Connect"))
           )
 }

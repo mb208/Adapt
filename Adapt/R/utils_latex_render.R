@@ -80,6 +80,12 @@ tex_power <- function(x, pow) {
   
 }
 
+tex_lag <- function(x, n, unit) {
+  
+  str_interp("${x}^{t_{\\text{ ${unit}} } - ${n}}")
+  
+}
+
 tex_expr_mult <- function(f, X, weights=NULL) {
   
   switch(f,
@@ -89,19 +95,22 @@ tex_expr_mult <- function(f, X, weights=NULL) {
          )
 }
 
-tex_expr_unary <- function(f, x, pow=NULL) {
+tex_expr_unary <- function(f, x, pow=NULL, n = NULL, unit=NULL) {
   
   if (f == "^") {
     tex_power(x, pow)
+  } else if (f=="lag") {
+    tex_lag(x, n = n, unit = unit)
   } else {
     tex_function(f, x)
   }
+  
 }
 
-func_to_tex <- function(f, X, pow=NULL, weights=NULL){
+func_to_tex <- function(f, X, pow=NULL, n=NULL, unit=NULL, weights=NULL){
   
   if (length(X) == 1) {
-    tex_expr_unary(f, X, pow)
+    tex_expr_unary(f, X, pow=pow, n=n, unit=unit)
     
   } else if (length(X) > 1) {
     tex_expr_mult(f, X, weights)

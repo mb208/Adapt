@@ -129,22 +129,36 @@ distribution_sample_Server <- function(id, tex_name, n_participants, n_days, dec
                    } else if (input$constant_time=="daily") {
                      sampled_var__ <- switch (
                        input$data_dist,
-                       "Gaussian"  = rep(rnorm(n_participants*decision_pts,
-                                               mean = input[[paste0(dist_id(),"-mu")]],
-                                               sd   = input[[paste0(dist_id(),"-sd")]]),
-                                         n_days),
-                       "Binomial"  = rep(rbinom(n_participants*decision_pts,
-                                                size = input[[paste0(dist_id(), "-n")]],
-                                                p    = input[[paste0(dist_id(), "-p")]]),
-                                         n_days),
-                       "Gamma"     = rep(rgamma(n_participants*decision_pts,
-                                                shape = input[[paste0(dist_id(), "-s")]],
-                                                rate  = input[[paste0(dist_id(), "-r")]]),
-                                         n_days),
-                       "Uniform"     = rep(runif(n_participants*decision_pts,
-                                                 min = input[[paste0(dist_id(),"-min")]],
-                                                 max = input[[paste0(dist_id(),"-max")]]),
-                                         n_days)
+                       "Gaussian" = Reduce(c, 
+                                            replicate(n_days,
+                                                      rep(rnorm(n_participants,
+                                                                mean = input[[paste0(dist_id(),"-mu")]],
+                                                                sd   = input[[paste0(dist_id(),"-sd")]]),
+                                                          decision_pts)
+                                                      )
+                                            ),
+                       "Binomial" = Reduce(c,
+                                            replicate(n_days,
+                                                      rep(rbinom(n_participants,
+                                                                 size = input[[paste0(dist_id(), "-n")]],
+                                                                 p    = input[[paste0(dist_id(), "-p")]]),
+                                                          decision_pts)
+                                                      )
+                                            ),
+                       "Gamma"    = Reduce(c, replicate(n_days,
+                                                         rep(rgamma(n_participants,
+                                                                    shape = input[[paste0(dist_id(), "-s")]],
+                                                                    rate  = input[[paste0(dist_id(), "-r")]]),
+                                                             decision_pts)
+                                                         )
+                                            ),
+                       "Uniform"  = Reduce(c, replicate(n_days, 
+                                                        rep(runif(n_participants,
+                                                                  min = input[[paste0(dist_id(),"-min")]],
+                                                                  max = input[[paste0(dist_id(),"-max")]]),
+                                                            decision_pts)
+                                                        )
+                                           )
                      )
                      sampled_var(sampled_var__)
                    } else if (input$constant_time=="trial") {
