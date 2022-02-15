@@ -4,19 +4,19 @@ library(tidyverse)
 library(DT)
 
 # User files
-source("R/utils_server.R")
-source("R/utils_ui.R")
-source("R/utils_latex_render.R")
-
-# Modules
-source("R/mod_weighted_sum.R")
-source("R/mod_calc_mean.R")
-source("R/mod_calc_sd.R")
-source("R/mod_error_dist.R")
-source("R/mod_sample_distribution.R")
-source("R/mod_operation_warning.R")
-source("R/mod_downloadData.R")
-source("R/mod_location_scale.R")
+# source("R/utils_server.R")
+# source("R/utils_ui.R")
+# source("R/utils_latex_render.R")
+# 
+# # Modules
+# source("R/mod_weighted_sum.R")
+# source("R/mod_calc_mean.R")
+# source("R/mod_calc_sd.R")
+# source("R/mod_error_dist.R")
+# source("R/mod_sample_distribution.R")
+# source("R/mod_operation_warning.R")
+# source("R/mod_downloadData.R")
+# source("R/mod_location_scale.R")
 
 
 data_simulation_UI <- function(id) {
@@ -45,6 +45,8 @@ data_simulation_UI <- function(id) {
       column(1,
              offset = 2
       )
+      # ,
+      # actionButton(ns("browser"), "browser")
     ),
     hr(),
     tabsetPanel(type = "tabs",
@@ -128,8 +130,7 @@ data_simulation_Server <- function(id) {
                    validate(
                      need(!stringr::str_detect(sim_var_name, "^\\d"), "Name cannot start with digit."),
                      need(!stringr::str_detect(sim_var_name, "^_"), "Name cannot start with '_'."),
-                     need(!stringr::str_detect(sim_var_name, "[[:space:]]"), "Name cannot contain spaces (replace with _)."),
-                     need(!stringr::str_detect(sim_var_name, "[^_[:^punct:]]"), "Name cannot contain punctuation."),
+                     need(!stringr::str_detect(sim_var_name, "[^[:alnum:]_]"), "Name must be alphanumeric \n('_' permitted) and cannot contain spaces."),
                      need(!stringr::str_detect(sim_var_name, "[A-Z]"), "Name should be lower case."),
                      need(!(sim_var_name %in% names(simulated_data())), "Name exists in data. Cannot have duplicate variable names.")
                    )
@@ -181,8 +182,7 @@ data_simulation_Server <- function(id) {
                    }
                  })
                  
-                 acc <- reactiveVal()
-                 
+
                  # toggle gen_var button for dependent variable generation ----
                  observe({
                    req(input$independ_dist)
@@ -207,17 +207,30 @@ data_simulation_Server <- function(id) {
                  })
 
                  
-                 
                  observe({
                    if (num_vars()>1) {
                      shinyjs::show("independ_dist")
+                     
+                     shinyjs::disable("n_participants")
+                     shinyjs::disable("decision_pts")
+                     shinyjs::disable("n_days")
+                     
                    } else {
                      shinyjs::hide("independ_dist")
+                     
+                     shinyjs::enable("n_participants")
+                     shinyjs::enable("decision_pts")
+                     shinyjs::enable("n_days")
+                     
                    }
                  })
                  
+                 
+                 observeEvent(input$browser,{
+                   browser()
+                 })
                  observe({
-                   req(input$sim_var_name)
+                   # req(input$sim_var_name)
                    cond_varname <- validate_variable_name(sim_var_name(), names(simulated_data()))
                    if (!cond_varname) {
                      shinyjs::enable("independ_dist")
@@ -254,7 +267,6 @@ data_simulation_Server <- function(id) {
                      sim_df$pid <- rep(1:input$n_participants, total)
 
                      simulated_data(sim_df)
-                     
                      id = str_c("var-", num_vars(), collapse = "")
                      
                      insert_variable_UI(paste0("#", ns("variable-list")), where = "beforeEnd", id = ns(id),
@@ -357,39 +369,37 @@ data_simulation_Server <- function(id) {
   
 }
 
-# source("utils_server.R")
-# source("utils_ui.R")
-# source("utils_latex_render.R")
-# source("mod_calc_mean.R")
-# source("mod_calc_sd.R")
-# source("mod_error_dist.R")
-# source("mod_weighted_sum.R")
-# source("mod_sample_distribution.R")
-# source("mod_location_scale.R")
-# source("mod_downloadData.R")
-# source("mod_operation_warning.R")
+source("utils_server.R")
+source("utils_ui.R")
+source("utils_latex_render.R")
+source("mod_calc_mean.R")
+source("mod_calc_sd.R")
+source("mod_error_dist.R")
+source("mod_weighted_sum.R")
+source("mod_sample_distribution.R")
+source("mod_location_scale.R")
+source("mod_downloadData.R")
+source("mod_operation_warning.R")
 
 
-# ui <- fluidPage(
-#   useShinyjs(),tags$head(
-#     includeCSS("./www/accordion.css"), 
-#     includeCSS("./www/style.css"), 
-#     includeScript("./www/accordion.js") 
-#   ),
-#   mainPanel(actionButton("browser", "browser"),
-#             data_simulation_UI("data_simulation")
-#   )
-# )
-# 
-# 
-# server <- function(input, output, session) {
-# 
-#   result <- data_simulation_Server("data_simulation")
-#   
-#   observeEvent(input$browser,{
-#     browser()
-#   })
-#   
-# }
-# 
-# shinyApp(ui, server)
+ui <- fluidPage(
+  useShinyjs(),tags$head(
+    includeCSS("../www/accordion.css"),
+    includeCSS("../www/style.css"),
+    includeScript("../www/accordion.js")
+  ),
+  mainPanel(
+    #actionButton("browser", "browser"),
+            data_simulation_UI("data_simulation")
+  )
+)
+
+
+server <- function(input, output, session) {
+
+  result <- data_simulation_Server("data_simulation")
+
+
+}
+
+shinyApp(ui, server)

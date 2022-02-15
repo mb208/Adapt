@@ -2,13 +2,13 @@ library(shiny)
 library(shinyjs)
 library(tidyverse)
 
-source("R/utils_server.R")
-source("R/utils_ui.R")
-source("R/utils_latex_render.R")
-source("R/mod_calc_mean.R")
-source("R/mod_calc_sd.R")
-source("R/mod_error_dist.R")
-source("R/mod_operation_warning.R")
+# source("R/utils_server.R")
+# source("R/utils_ui.R")
+# source("R/utils_latex_render.R")
+# source("R/mod_calc_mean.R")
+# source("R/mod_calc_sd.R")
+# source("R/mod_error_dist.R")
+# source("R/mod_operation_warning.R")
 
 
 location_scale_UI <- function(id) {
@@ -103,34 +103,34 @@ location_scale_Server <- function(id, df) {
 
 
 
-# source("utils_server.R")
-# source("utils_ui.R")
-# source("utils_latex_render.R")
-# source("mod_calc_mean.R")
-# source("mod_calc_sd.R")
-# source("mod_error_dist.R")
-# source("mod_operation_warning.R")
-# 
-# ui <- fluidPage(
-#   useShinyjs(),
-#   mainPanel(actionButton("browser", "browser"),
-#             location_scale_UI("location_Scale"),
-#             #actionButton("gen", "Gen Variable")
-#   )
-# )
-# 
-# 
-# server <- function(input, output, session) {
-#   
-#   data <-data.frame(matrix(rnorm(300),ncol=3))
-#   
-#   result <- location_scale_Server("location_Scale", 
-#                                   df = reactive(data))
-#   
-#   observeEvent(input$browser,{
-#     browser()
-#   })
-#   
-# }
-# 
-# shinyApp(ui, server)
+source("utils_server.R")
+source("utils_ui.R")
+source("utils_latex_render.R")
+source("mod_calc_mean.R")
+source("mod_calc_sd.R")
+source("mod_error_dist.R")
+source("mod_operation_warning.R")
+
+ui <- fluidPage(
+  useShinyjs(),
+  mainPanel(actionButton("browser", "browser"),
+            location_scale_UI("location_Scale"),
+            #actionButton("gen", "Gen Variable")
+  )
+)
+
+
+server <- function(input, output, session) {
+
+  data <-data.frame(matrix(rnorm(300),ncol=3))
+
+  result <- location_scale_Server("location_Scale",
+                                  df = reactive(data))
+
+  observeEvent(input$browser,{
+    browser()
+  })
+
+}
+
+shinyApp(ui, server)

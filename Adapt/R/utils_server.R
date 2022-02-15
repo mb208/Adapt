@@ -1,5 +1,5 @@
+library(tidyverse)
 #### Function to Apply different operators to input variable(s) ####
-
 
 # Location-Scale model computations ----
 n_ary_operator <- function(operator, var) {
@@ -80,11 +80,10 @@ update_sim_params <- function(sim_params, cond_dist_step, num_vars, sim_data, me
 # Check variable name meets requirements ----
 validate_variable_name <- function(name, df_names) {
   condition =  name == "" | 
-    stringr::str_detect(name, "^\\d") |
-    stringr::str_detect(name, "^_") |
-    stringr::str_detect(name, "[[:space:]]") |
-    stringr::str_detect(name, "[^_[:^punct:]]") |
-    stringr::str_detect(name, "[A-Z]") |
+    stringr::str_detect(name, "^\\d") | # check if name starts with digits
+    stringr::str_detect(name, "^_") | # check if name starts with _
+    stringr::str_detect(name, "[^[:alnum:]_]") | # check if name has non-alphanumeric characters 
+    stringr::str_detect(name, "[A-Z]") | # check if name has capital letters
     (name %in% df_names)
   
   return(condition)
